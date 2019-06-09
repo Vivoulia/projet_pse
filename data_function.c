@@ -1,56 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "string.h"
-
-#define BUFFER_PSEUDO 50
-#define BUFFER_MDP 50
-#define BUFFER_PUBLI 140
-
-typedef struct Publication Publication;
-typedef struct Date Date;
-typedef struct Utilisateur Utilisateur;
-typedef struct UtilisateurChaine UtilisateurChaine;
-typedef struct DataUtilisateur DataUtilisateur;
-
-void initDataUtilisateur(DataUtilisateur* users);
-
-struct Date
-{
-	int jour;
-	int mois;
-	int annee;
-};
-
-struct Publication
-{
-	char texte[BUFFER_PUBLI];
-	Date date;
-	Publication* suiv;
-};
-
-struct Utilisateur
-{
-	int id;
-	char pseudo[BUFFER_PSEUDO];
-	char mdp[BUFFER_MDP];
-};
-
-struct UtilisateurChaine
-{
-	Utilisateur* utilisateur;
-	UtilisateurChaine* suiv;
-};
-
-
-struct DataUtilisateur
-{
-	Utilisateur* utilisateur;
-	Publication* publication;
-	UtilisateurChaine* abonnes;
-	UtilisateurChaine* abonnements;
-	DataUtilisateur* suiv;
-	
-};
+#include "data_function.h"
 
 DataUtilisateur* finUserById(DataUtilisateur* users, int id_user)
 {
@@ -62,7 +13,7 @@ DataUtilisateur* finUserById(DataUtilisateur* users, int id_user)
 	return current_user; 
 }
 
-void addUtilisateur(DataUtilisateur* users, char pseudo[BUFFER_PSEUDO], char mdp[BUFFER_MDP])
+void addUtilisateur(DataUtilisateur* users, char pseudo[BUFFER_PSEUDO], char mdp[BUFFER_MDP], DataInfo* info)
 {
 	//On initialise si c'est le premier utilisateurs
 	DataUtilisateur* current_user = users;
@@ -94,6 +45,7 @@ void addUtilisateur(DataUtilisateur* users, char pseudo[BUFFER_PSEUDO], char mdp
 		new_user->id = id;
 		users->utilisateur = new_user;
 	}
+	info->nb_utilisateur++;
 }
 
 void addPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PUBLI])
@@ -109,6 +61,9 @@ void addPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PUBLI
 	}
 	Publication* new_publi = (Publication*) malloc(sizeof(Publication));
 	strcpy(new_publi->texte, texte);
+	new_publi->date.jour = 0;
+	new_publi->date.mois = 0;
+	new_publi->date.annee = 0;
 	new_publi->suiv = NULL;
 	if(current_user->publication != NULL)
 	{
@@ -118,6 +73,7 @@ void addPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PUBLI
 	{
 		current_user->publication = new_publi;
 	}
+	current_user->nb_publication++;
 }
 
 void addAbonnement(DataUtilisateur* users, int id_user, int id_abonnement)
@@ -143,10 +99,10 @@ void addAbonnement(DataUtilisateur* users, int id_user, int id_abonnement)
 	{
 		current_user->abonnements = new_user_chaine;
 	}
-	
+	current_user->nb_abonnement++;
 }
 
-void addAbonnee(DataUtilisateur* users, int id_user, int id_abonnee)
+void addAbonne(DataUtilisateur* users, int id_user, int id_abonnee)
 {
 	DataUtilisateur* current_user = finUserById(users, id_user);
 	DataUtilisateur* user_abonnee = finUserById(users, id_abonnee);
@@ -169,7 +125,7 @@ void addAbonnee(DataUtilisateur* users, int id_user, int id_abonnee)
 	{
 		current_user->abonnes = new_user_chaine;
 	}
-	
+	current_user->nb_abonne++;
 }
 
 void printPublicationUser(DataUtilisateur* current_datauser)
@@ -230,27 +186,145 @@ void initDataUtilisateur(DataUtilisateur* users)
 	users->abonnes = NULL;
 	users->abonnements = NULL;
 	users->suiv = NULL;
+	users->nb_publication = 0;
+	users->nb_abonne = 0;
+	users->nb_abonnement = 0;
 }
 
-int main()
+void loadDataFromFile(DataUtilisateur* users, DataInfo* info)
 {
-	DataUtilisateur users;
-	initDataUtilisateur(&users);
-	addUtilisateur(&users, "Vivien", "Test");
-	addUtilisateur(&users, "Baptiste", "Test");
-	addUtilisateur(&users, "Otello", "Test");
-	addUtilisateur(&users, "Lucas", "Test");
-	
-	addAbonnement(&users, 3, 0);
-	addAbonnement(&users, 3, 2);
-	
-	addAbonnee(&users, 3, 0);
-	addAbonnee(&users, 3, 1);
-	
-	addPublication(&users, 3, "Test publication");
-	addPublication(&users, 3, "Hum");
-	printData(&users);
-	return 0;
+	FILE* fichier;
+	fichier = fopen("data_1.txt", "r");
+	if(fichier != NULL)
+	{
+		int nb_utilisateur = 0;
+		fscanf(fichier, "%d\n", &nb_utilisateur);
+		printf("Enregistrement de %d utilisateurs\n", nb_utilisateur);
+		for(int i = 0; i<nb_utilisateur; i++)
+		{
+			Utilisateur utilisateur;
+			fscanf(fichier, "%d %s %s", &utilisateur.id, utilisateur.pseudo, utilisateur.mdp);
+			addUtilisateur(users, utilisateur.pseudo, utilisateur.mdp, info);
+		}
+		for(int i = 0; i<nb_utilisateur; i++)
+		{
+			int id = 0;
+			fscanf(fichier, "%d", &id);
+			int nb_publication = 0;
+			fscanf(fichier, "%d", &nb_publication);
+			if(nb_publication > 0)
+			{
+				Publication publication;
+				for(int j = 0; j<nb_publication; j++)
+				{
+					fscanf(fichier, "%s", publication.texte);
+					fscanf(fichier, "%d %d %d\n", &publication.date.jour, &publication.date.mois, &publication.date.annee);
+					addPublication(users, id, publication.texte);
+				}
+			}
+			//Sauvegarde des abonnements
+			int nb_abonnement = 0;
+			fscanf(fichier, "%d", &nb_abonnement);
+			if(nb_abonnement > 0)
+			{
+				int id_abonnement = 0;
+				for(int j = 0; j<nb_abonnement; j++)
+				{
+					fscanf(fichier, "%d", &id_abonnement);
+					addAbonnement(users, id, id_abonnement);
+				}
+			}
+			//Sauvegarde des abonnes
+			int nb_abonne = 0;
+			fscanf(fichier, "%d", &nb_abonne);
+			if(nb_abonne > 0)
+			{
+				int id_abonne = 0;
+				for(int j = 0; j<nb_abonne; j++)
+				{
+					fscanf(fichier, "%d", &id_abonne);
+					addAbonne(users, id, id_abonne);
+				}
+			}
+		}
+		fclose(fichier);
+	}
+	else
+	{
+		printf("Erreur lors de l'ouverture du fichier de données");
+	}
 }
+
+void saveDataInFile(DataUtilisateur* users, DataInfo* info)
+{
+	FILE* fichier;
+	fichier = fopen("data_1.txt", "w+");
+	if(fichier != NULL)
+	{
+		DataUtilisateur* current_user = users;
+		fprintf(fichier, "%d\n", info->nb_utilisateur);
+		printf("Enregistrement de %d utilisateurs\n", info->nb_utilisateur);
+		for(int i = 0; i<info->nb_utilisateur; i++)
+		{
+		
+			fprintf(fichier, "%d %s %s\n", current_user->utilisateur->id, current_user->utilisateur->pseudo, current_user->utilisateur->mdp);
+			//Sauvegarde des publications
+			current_user = current_user->suiv;
+		}
+		current_user = users;
+		for(int i = 0; i<info->nb_utilisateur; i++)
+		{
+			fprintf(fichier, "%d\n", current_user->utilisateur->id);
+			fprintf(fichier, "%d\n", current_user->nb_publication);
+			if(current_user->nb_publication > 0)
+			{
+				Publication* current_publi = current_user->publication;
+				for(int j = 0; j<current_user->nb_publication; j++)
+				{
+					fprintf(fichier, "%s\n", current_publi->texte);
+					fprintf(fichier, "%d %d %d\n", current_publi->date.jour, current_publi->date.mois, current_publi->date.annee);
+					current_publi = current_publi->suiv;
+				}
+			}
+			//Sauvegarde des abonnements
+			fprintf(fichier, "%d\n", current_user->nb_abonnement);
+			if(current_user->nb_abonnement > 0)
+			{
+				UtilisateurChaine* current_abo = current_user->abonnements;
+				for(int j = 0; j<current_user->nb_abonnement; j++)
+				{
+					fprintf(fichier, "%d\n", current_abo->utilisateur->id);
+					current_abo = current_abo->suiv;
+				}
+			}
+			//Sauvegarde des abonnes
+			fprintf(fichier, "%d\n", current_user->nb_abonne);
+			if(current_user->nb_abonne > 0)
+			{
+				UtilisateurChaine* current_abo = current_user->abonnes;
+				for(int j = 0; j<current_user->nb_abonne; j++)
+				{
+					fprintf(fichier, "%d\n", current_abo->utilisateur->id);
+					current_abo = current_abo->suiv;
+				}
+			}
+			current_user = current_user->suiv;
+		}
+		fclose(fichier);
+	}
+	else
+	{
+		printf("Erreur lors de l'ouverture du fichier de données");
+	}
+}
+
+void freeDataMemory(DataUtilisateur* users)
+{
+	printf("A faire");
+}
+
+
+
+
 
 

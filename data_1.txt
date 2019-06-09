@@ -1,0 +1,29 @@
+4
+0 User0 Test
+1 Baptiste Test
+2 Otello Test
+3 Lucas Test
+0
+0
+0
+0
+1
+0
+0
+0
+2
+0
+0
+0
+3
+2
+Test publication
+0 0 0
+Hum
+0 0 0
+2
+0
+2
+2
+0
+1

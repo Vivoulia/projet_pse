@@ -1,11 +1,12 @@
 #include "pse.h"
+#include "data_function.h"
 
 #define BUF_SIZE 140
 #define CMD "serveur"
 #define MaxUser 10
 
 
-typedef struct Thread {
+typedef struct {
 	pthread_t Rid;
 	pthread_t Wid;
 	int tid;
@@ -13,42 +14,46 @@ typedef struct Thread {
 	sem_t sem;
 	sem_t sem_w;
 	sem_t sem_r;
-} Thread;
+} Thread_Data;
 
 struct sockaddr_in adrEcoute, adrClient;
-Thread thread[MaxUser];
+Thread_Data thread_data[MaxUser];
 sem_t sem_;
 
 unsigned int lgAdrClient;
 int ecoute, ret;
 
 
-void *ReceiveClient(void *arg)
+void *receiveClient(void *arg)
 {
-	Thread *tc = (Thread*) arg;
+	Thread_Data *tc = (Thread_Data*) arg;
 	char buf[BUF_SIZE];
 	int nbRead;
 	int continu =1;
 	sem_wait(&tc->sem);
+	/*
 	sem_wait(&tc->sem_r);
 	nbRead = lireLigne(tc->canal,buf);
-	sem_post(&tc->sem_w);
+	sem_post(&tc->sem_w);*/
 	while (continu);
 	
 	exit(EXIT_SUCCESS);
 }
 
-void *SendClient(void *arg)
+void *sendClient(void *arg)
 {
-	Thread *tc = (Thread*) arg;
+	Thread_Data *tc = (Thread_Data*) arg;
 	char buf[BUF_SIZE];
 	int nbRead;
 	int continu =1;
 	sem_wait(&tc->sem);
-	ecrireLigne(tc->canal,"Rentrez votre pseudo : ");
+	printf("On envoie un message %d\n", tc->canal);
+	strcpy(buf, "Rentrez votre pseudo");
+	ecrireLigne(tc->canal, buf);
+	/*
 	sem_post(&tc->sem_r);
 	sem_wait(&tc->sem_w);
-	/*
+	
 	if (existe in liste_pseudo)
 	{
 		ecrireLigne(tc->canal, "\nTapez votre mot de passe : ");
@@ -68,6 +73,14 @@ void *SendClient(void *arg)
 
 int main(int argc, char *argv[])
 {
+	//chargeement de la base de données
+	DataUtilisateur users;
+	DataInfo info;
+	info.nb_utilisateur = 0;
+	initDataUtilisateur(&users);
+	loadDataFromFile(&users, &info);
+	printData(&users);
+	
 	short port;
 	
 	if (argc != 2)
@@ -77,17 +90,17 @@ int main(int argc, char *argv[])
 	sem_init( &sem_, 0, MaxUser);
 	for (int i = 0; i < MaxUser; i++)
 	{
-		thread[i].tid = i;
-		thread[i].canal = -1;
-		sem_init(&thread[i].sem, 0, 0);
-		sem_init(&thread[i].sem_w, 0, 0);
-		sem_init(&thread[i].sem_r, 0, 0);
-		if (pthread_create(&thread[i].Rid, NULL, ReceiveClient, NULL) != 0) 
+		thread_data[i].tid = i;
+		thread_data[i].canal = -1;
+		sem_init(&thread_data[i].sem, 0, 0);
+		sem_init(&thread_data[i].sem_w, 0, 0);
+		sem_init(&thread_data[i].sem_r, 0, 0);
+		if (pthread_create(&thread_data[i].Rid, NULL, receiveClient, &thread_data[i]) != 0) 
 			erreur_IO("creation of the reading thread");
-		printf("Lancement du thread de lecture n°%d | ",thread[i].tid);
-		if (pthread_create(&thread[i].Wid, NULL, SendClient, NULL) != 0)
+		printf("Lancement du thread de lecture n°%d | ",thread_data[i].tid);
+		if (pthread_create(&thread_data[i].Wid, NULL, sendClient, &thread_data[i]) != 0)
 			erreur_IO("creation of the writing thread");
-		printf("Lancement du thread d'écriture n°%d\n", thread[i].tid);
+		printf("Lancement du thread d'écriture n°%d\n", thread_data[i].tid);
 	}
 	
 	printf("%s : Creation du socket\n", CMD);
@@ -116,20 +129,22 @@ int main(int argc, char *argv[])
 		sem_wait(&sem_);
 		while (trouve == 0)
 		{
-			if ( thread[i].canal == -1)
+			if ( thread_data[i].canal == -1)
 			{
 				libre = i;
 				trouve = 1;
 			}
 			i++;
 		}
-		thread[libre].canal = accept(ecoute, (struct sockaddr *) &adrClient, &lgAdrClient);
-		if (thread[libre].canal < 0)
+		thread_data[libre].canal = accept(ecoute, (struct sockaddr *) &adrClient, &lgAdrClient);
+		if (thread_data[libre].canal < 0)
 			erreur_IO("accept");
 		
 		printf("%s : Connexion sur le socket depuis le thread %d\n", CMD, libre);
 		printf("%s : Adresse %s, port %hu\n", CMD, stringIP(ntohl(adrClient.sin_addr.s_addr)), ntohs(adrClient.sin_port));
-		sem_post(&thread[libre].sem);
+		sem_post(&thread_data[libre].sem);
+		printf("Lancement de la discussion client/serveur\n");
 	}
 	exit(EXIT_SUCCESS);
 }
+

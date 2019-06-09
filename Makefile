@@ -2,11 +2,15 @@
 #
 include ../Makefile.inc
 
-EXE = serveur client data_function
+EXE = serveur client
 
 all: ${EXE}
 
 clean:
 	rm -f *.o *~ ${EXE}
+
+
+
+
 
 
