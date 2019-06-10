@@ -1,10 +1,16 @@
 #include "pse.h"
 #include "data_function.h"
 
+
 #define BUF_SIZE 140
 #define CMD "serveur"
 #define MaxUser 10
 
+
+
+enum states {NOT_CONNECTED, CONNECTED};
+
+enum events {CONNECTION, PUBLISH, LIKE, FOLLOW, UNFOLLOW};
 
 typedef struct {
 	pthread_t Rid;
@@ -14,6 +20,7 @@ typedef struct {
 	sem_t sem;
 	sem_t sem_w;
 	sem_t sem_r;
+	enum states state;
 } Thread_Data;
 
 struct sockaddr_in adrEcoute, adrClient;
@@ -23,18 +30,55 @@ sem_t sem_;
 unsigned int lgAdrClient;
 int ecoute, ret;
 
+DataUtilisateur users;
+DataInfo info;
 
 void *receiveClient(void *arg)
 {
 	Thread_Data *tc = (Thread_Data*) arg;
+	DataUtilisateur *courant;
 	char buf[BUF_SIZE];
 	int nbRead;
 	int continu =1;
-	sem_wait(&tc->sem);
-	/*
-	sem_wait(&tc->sem_r);
-	nbRead = lireLigne(tc->canal,buf);
-	sem_post(&tc->sem_w);*/
+	while (continu)
+	{
+		sem_wait(&tc->sem_r);
+		switch(tc->state)
+		{
+			case (NOT_CONNECTED) :
+			{
+				nbRead = lireLigne(tc->canal,buf);
+				courant = &users;
+				while (courant != NULL) 
+				{
+					if (strcmp(buf, courant->utilisateur->pseudo) == 0)
+					{
+						printf("%s se connecte sur le serveur\n", courant->utilisateur->pseudo);
+						tc->state = CONNECTED;
+						break;
+					}
+					else
+						courant = courant->suiv;
+				}
+				/*
+				if (tc->state == NOT_CONNECTED)
+				{
+					addUtilisateur( users, buf, "");
+					tc->state = CONNECTED;
+				}
+				*/
+				tc->state = CONNECTED;	//À virer après
+				sem_post(&tc->sem_w);
+				break;
+			}
+			
+			case (CONNECTED) :
+			{
+			
+				break;
+			}
+		}
+	}
 	while (continu);
 	
 	exit(EXIT_SUCCESS);
@@ -46,14 +90,28 @@ void *sendClient(void *arg)
 	char buf[BUF_SIZE];
 	int nbRead;
 	int continu =1;
-	sem_wait(&tc->sem);
-	printf("On envoie un message %d\n", tc->canal);
-	strcpy(buf, "Rentrez votre pseudo");
-	ecrireLigne(tc->canal, buf);
-	/*
-	sem_post(&tc->sem_r);
 	sem_wait(&tc->sem_w);
-	
+	while (continu)
+	{
+		switch(tc->state)
+		{
+			case (NOT_CONNECTED) :
+			{
+				printf("On envoie un message %d\n", tc->canal);
+				strcpy(buf, "Rentrez votre pseudo");
+				ecrireLigne(tc->canal, buf);
+				sem_post(&tc->sem_r);
+				sem_wait(&tc->sem_w);
+				break;
+			}
+			case (CONNECTED) : 
+			{
+
+				break;
+			}
+		}
+	}
+	/*
 	if (existe in liste_pseudo)
 	{
 		ecrireLigne(tc->canal, "\nTapez votre mot de passe : ");
@@ -74,14 +132,11 @@ void *sendClient(void *arg)
 int main(int argc, char *argv[])
 {
 	//chargeement de la base de données
-	DataUtilisateur users;
-	DataInfo info;
 	info.nb_utilisateur = 0;
 	initDataUtilisateur(&users);
 	loadDataFromFile(&users, &info);
 	printData(&users);
-	printf("test 3");
-	
+	printf("test 3\n");
 	short port;
 	
 	if (argc != 2)
@@ -92,6 +147,7 @@ int main(int argc, char *argv[])
 	for (int i = 0; i < MaxUser; i++)
 	{
 		thread_data[i].tid = i;
+		thread_data[i].state = NOT_CONNECTED;
 		thread_data[i].canal = -1;
 		sem_init(&thread_data[i].sem, 0, 0);
 		sem_init(&thread_data[i].sem_w, 0, 0);
@@ -143,7 +199,7 @@ int main(int argc, char *argv[])
 		
 		printf("%s : Connexion sur le socket depuis le thread %d\n", CMD, libre);
 		printf("%s : Adresse %s, port %hu\n", CMD, stringIP(ntohl(adrClient.sin_addr.s_addr)), ntohs(adrClient.sin_port));
-		sem_post(&thread_data[libre].sem);
+		sem_post(&thread_data[libre].sem_w);
 		printf("Lancement de la discussion client/serveur\n");
 	}
 	exit(EXIT_SUCCESS);
