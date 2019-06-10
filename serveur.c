@@ -8,9 +8,9 @@
 
 
 
-enum states {NOT_CONNECTED, CONNECTED};
+enum states {NOT_CONNECTED, CONNECTION_REQUEST, REGISTER_REQUEST, CONNECTED};
 
-enum events {SEND_CONNECTION_DEMAND, SEND_CONNECTION_SUCCESS, PUBLISH, LIKE, FOLLOW, UNFOLLOW};
+enum events {JOINING_SERV, WAITING, SEND_CONNECTION_DEMAND, SEND_REGISTER_DEMAND, SEND_REGISTER_SUCCESS, SEND_CONNECTION_SUCCESS, SEND_PSEUDO_REQUEST, SEND_MDP_REQUEST,ERROR_MDP, PUBLISH, LIKE, FOLLOW, UNFOLLOW};
 
 typedef struct {
 	pthread_t Rid;
@@ -21,7 +21,7 @@ typedef struct {
 	sem_t sem_w;
 	sem_t sem_r;
 	enum states state;
-	enum states event;
+	enum events event;
 } Thread_Data;
 
 struct sockaddr_in adrEcoute, adrClient;
@@ -40,34 +40,86 @@ void *receiveClient(void *arg)
 	DataUtilisateur *courant;
 	char buf[BUF_SIZE];
 	int nbRead;
+	int try_mdp = 5;
+	char psdo[BUFFER_PSEUDO];
 	int continu = 1;
 	while (continu)
 	{
 		sem_wait(&tc->sem_r);
 		printf("On arrive ici\n");
-		switch(tc->state)
-		{
-			case (NOT_CONNECTED) :
-				nbRead = lireLigne(tc->canal,buf);
-				courant = findUserByPseudo(&users, buf);
-				if(courant != NULL)
+		
+				switch(tc->event)
 				{
-					printf("%s se connecte au serveur\n", courant->utilisateur->pseudo);
-					tc->state = CONNECTED;	//À virer après
-					tc->event = SEND_CONNECTION_SUCCESS;
-				}
-				else
-				{
-					//L'utilisateur n'existe pas
-					printf("erreur ... %s inconnu\n", buf);
-				}
+					case (JOINING_SERV) :
+						lireLigne(tc->canal,buf);
+						if (strcmp(buf, "connection") == 0)
+							tc->event = SEND_CONNECTION_DEMAND;
+						else if (strcmp(buf, "register") == 0)
+							tc->event = SEND_REGISTER_DEMAND;
+						break;
+					case (SEND_PSEUDO_REQUEST) :
+						nbRead = lireLigne(tc->canal,buf);
+						courant = findUserByPseudo(&users, buf);
+						switch(tc->state)
+						{
+							case (CONNECTION_REQUEST) :
+								if(courant != NULL)
+								{
+									printf("%s veut se connecter au serveur\n", courant->utilisateur->pseudo);
+									tc->event = SEND_MDP_REQUEST;
+								}
+								else
+								{
+									//Utilisateur introuvable
+									printf("erreur ... %s n'existe pas\n",buf);
+								}
+								break;
+							case (REGISTER_REQUEST) :
+								if(courant != NULL)
+								{
+									printf("%s déja pris\n", courant->utilisateur->pseudo);
+								}
+								else
+								{
+									strcpy(psdo, buf);
+									printf("%s s'inscrit sur le serveur \n", buf);
+									tc->event = SEND_MDP_REQUEST;
+								}
+								break;
+						}
+						break;
+						
+						
+					case (SEND_MDP_REQUEST) :
+						nbRead = lireLigne(tc->canal,buf);
+						switch(tc->state)
+						{
+							case (CONNECTION_REQUEST) :
+								if ( strcmp(buf, courant->utilisateur->mdp) == 0)
+									tc->event = SEND_CONNECTION_SUCCESS;
+								else 
+								{
+									try_mdp--;
+									if (try_mdp < 0)
+										tc->event = ERROR_MDP;
+								}
+								break;
+							case (REGISTER_REQUEST) :
+								if (nbRead > 0)
+								{
+									tc->event = SEND_REGISTER_SUCCESS;
+									addUtilisateur(&users,psdo,buf,&info);
+									courant = findUserByPseudo(&users, psdo);
+								}
+								break;
+						}
+						break;
+					case (WAITING) :
+						nbRead = lireLigne(tc->canal, buf);
+						break;
+				}		
 				sem_post(&tc->sem_w);
-				break;
-			case (CONNECTED) :
-				break;
-		}
 	}
-	
 	exit(EXIT_SUCCESS);
 }
 
@@ -82,11 +134,58 @@ void *sendClient(void *arg)
 	{
 		switch(tc->event)
 		{
+			case (JOINING_SERV) :
+			
+				strcpy(buf,"Tapez \"connection\" pour se connecter ou \"register\" pour s'inscrire");
+				break;
 			case (SEND_CONNECTION_DEMAND) :
+				switch (tc->state)
+				{
+					case (NOT_CONNECTED) :
+						strcpy(buf, "Rentrez votre pseudo");
+						tc->event = SEND_PSEUDO_REQUEST;
+						tc->state = CONNECTION_REQUEST;
+						break;
+					default :
+						strcpy(buf,"Action impossible");
+						tc->event = WAITING;
+						break;
+				}
+				break;
+			case (SEND_REGISTER_DEMAND) :
 				strcpy(buf, "Rentrez votre pseudo");
+				tc->event = SEND_PSEUDO_REQUEST;
+				tc->state = REGISTER_REQUEST;
 				break;
 			case (SEND_CONNECTION_SUCCESS) : 
-				strcpy(buf, "Bienvenue vous êtes connecté");
+				switch(tc->state)
+				{
+					case (CONNECTION_REQUEST) :
+						strcpy(buf, "Bienvenue vous êtes connecté");
+						tc->state = CONNECTED;
+						tc->event = WAITING;
+						break;
+				}	
+				break;
+			case (SEND_REGISTER_SUCCESS) :
+				strcpy(buf, "Bienvenue votre inscription a fonctionné");
+				tc->state = CONNECTED;
+				tc->event = WAITING;
+				break;
+			case (SEND_MDP_REQUEST) :
+				switch(tc->state)
+				{
+					case (CONNECTION_REQUEST) :
+						strcpy(buf,"Tapez votre mot de passe");
+						break;
+					case (REGISTER_REQUEST) :
+						strcpy(buf,"Choisissez votre mot de passe");
+						break;
+				}
+				break;
+			case (ERROR_MDP) :
+				strcpy(buf,"Trop d'échecs, vous allez être déconnecté");
+				tc->event = WAITING;
 				break;
 		}
 		printf("On envoie un message %d\n", tc->canal);
@@ -105,7 +204,6 @@ void *sendClient(void *arg)
 		ecrireLigne(tc->canal, "Aucun mot de passe n'est associé à ce pseudo, veuillez en choisir un : ");
 	}
 	*/
-	
 	
 	exit(EXIT_SUCCESS);
 }
@@ -130,7 +228,7 @@ int main(int argc, char *argv[])
 	{
 		thread_data[i].tid = i;
 		thread_data[i].state = NOT_CONNECTED;
-		thread_data[i].event = NOT_CONNECTED;
+		thread_data[i].event = JOINING_SERV;
 		thread_data[i].canal = -1;
 		sem_init(&thread_data[i].sem, 0, 0);
 		sem_init(&thread_data[i].sem_w, 0, 0);
@@ -187,4 +285,5 @@ int main(int argc, char *argv[])
 	}
 	exit(EXIT_SUCCESS);
 }
+
 

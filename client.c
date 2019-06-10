@@ -19,12 +19,12 @@ void *listenServer(void *arg)
 	Thread_Data *tc = (Thread_Data*) arg;
 	char buf[BUF_SIZE];
 	int nbRead = 0;
-	while (1)
+	while(1)
 	{
 		nbRead = lireLigne(tc->canal,buf);
 		if(nbRead == -1)
 			erreur_IO("lireLigne");
-		printf("Reception: %s", buf);
+		printf("Reception: %s\n", buf);
 		//On a reçu un message on laisse le client répondre
 		sem_post(&tc->sem_w);
 	}
