@@ -10,6 +10,7 @@ typedef struct DataUtilisateur DataUtilisateur;
 typedef struct DataInfo DataInfo;
 
 DataUtilisateur* finUserById(DataUtilisateur* users, int id_user);
+DataUtilisateur* findUserByPseudo(DataUtilisateur* users, char pseudo[]);
 void initDataUtilisateur(DataUtilisateur* users);
 void addUtilisateur(DataUtilisateur* users, char pseudo[BUFFER_PSEUDO], char mdp[BUFFER_MDP], DataInfo* info);
 void addPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PUBLI]);

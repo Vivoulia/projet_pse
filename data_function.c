@@ -13,6 +13,20 @@ DataUtilisateur* finUserById(DataUtilisateur* users, int id_user)
 	return current_user; 
 }
 
+DataUtilisateur* findUserByPseudo(DataUtilisateur* users, char pseudo[])
+{
+	DataUtilisateur* current_user = users;
+	while (current_user != NULL) 
+	{
+		if (strcmp(pseudo, current_user->utilisateur->pseudo) == 0)
+		{
+			return current_user;
+		}
+		current_user = current_user->suiv;
+	}
+	return NULL;
+}
+
 void addUtilisateur(DataUtilisateur* users, char pseudo[BUFFER_PSEUDO], char mdp[BUFFER_MDP], DataInfo* info)
 {
 	//On initialise si c'est le premier utilisateurs

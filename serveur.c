@@ -10,7 +10,7 @@
 
 enum states {NOT_CONNECTED, CONNECTED};
 
-enum events {CONNECTION, PUBLISH, LIKE, FOLLOW, UNFOLLOW};
+enum events {SEND_CONNECTION_DEMAND, SEND_CONNECTION_SUCCESS, PUBLISH, LIKE, FOLLOW, UNFOLLOW};
 
 typedef struct {
 	pthread_t Rid;
@@ -21,6 +21,7 @@ typedef struct {
 	sem_t sem_w;
 	sem_t sem_r;
 	enum states state;
+	enum states event;
 } Thread_Data;
 
 struct sockaddr_in adrEcoute, adrClient;
@@ -39,47 +40,33 @@ void *receiveClient(void *arg)
 	DataUtilisateur *courant;
 	char buf[BUF_SIZE];
 	int nbRead;
-	int continu =1;
+	int continu = 1;
 	while (continu)
 	{
 		sem_wait(&tc->sem_r);
+		printf("On arrive ici\n");
 		switch(tc->state)
 		{
 			case (NOT_CONNECTED) :
-			{
 				nbRead = lireLigne(tc->canal,buf);
-				courant = &users;
-				while (courant != NULL) 
+				courant = findUserByPseudo(&users, buf);
+				if(courant != NULL)
 				{
-					if (strcmp(buf, courant->utilisateur->pseudo) == 0)
-					{
-						printf("%s se connecte sur le serveur\n", courant->utilisateur->pseudo);
-						tc->state = CONNECTED;
-						break;
-					}
-					else
-						courant = courant->suiv;
+					printf("%s se connecte au serveur\n", courant->utilisateur->pseudo);
+					tc->state = CONNECTED;	//À virer après
+					tc->event = SEND_CONNECTION_SUCCESS;
 				}
-				/*
-				if (tc->state == NOT_CONNECTED)
+				else
 				{
-					addUtilisateur( users, buf, "");
-					tc->state = CONNECTED;
+					//L'utilisateur n'existe pas
+					printf("erreur ... %s inconnu\n", buf);
 				}
-				*/
-				tc->state = CONNECTED;	//À virer après
 				sem_post(&tc->sem_w);
 				break;
-			}
-			
 			case (CONNECTED) :
-			{
-			
 				break;
-			}
 		}
 	}
-	while (continu);
 	
 	exit(EXIT_SUCCESS);
 }
@@ -93,23 +80,19 @@ void *sendClient(void *arg)
 	sem_wait(&tc->sem_w);
 	while (continu)
 	{
-		switch(tc->state)
+		switch(tc->event)
 		{
-			case (NOT_CONNECTED) :
-			{
-				printf("On envoie un message %d\n", tc->canal);
+			case (SEND_CONNECTION_DEMAND) :
 				strcpy(buf, "Rentrez votre pseudo");
-				ecrireLigne(tc->canal, buf);
-				sem_post(&tc->sem_r);
-				sem_wait(&tc->sem_w);
 				break;
-			}
-			case (CONNECTED) : 
-			{
-
+			case (SEND_CONNECTION_SUCCESS) : 
+				strcpy(buf, "Bienvenue vous êtes connecté");
 				break;
-			}
 		}
+		printf("On envoie un message %d\n", tc->canal);
+		ecrireLigne(tc->canal, buf);
+		sem_post(&tc->sem_r);
+		sem_wait(&tc->sem_w);
 	}
 	/*
 	if (existe in liste_pseudo)
@@ -123,7 +106,6 @@ void *sendClient(void *arg)
 	}
 	*/
 	
-	while (continu);
 	
 	exit(EXIT_SUCCESS);
 }
@@ -148,6 +130,7 @@ int main(int argc, char *argv[])
 	{
 		thread_data[i].tid = i;
 		thread_data[i].state = NOT_CONNECTED;
+		thread_data[i].event = NOT_CONNECTED;
 		thread_data[i].canal = -1;
 		sem_init(&thread_data[i].sem, 0, 0);
 		sem_init(&thread_data[i].sem_w, 0, 0);
