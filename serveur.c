@@ -80,6 +80,7 @@ int main(int argc, char *argv[])
 	initDataUtilisateur(&users);
 	loadDataFromFile(&users, &info);
 	printData(&users);
+	printf("test 3");
 	
 	short port;
 	
