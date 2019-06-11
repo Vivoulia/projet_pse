@@ -2,6 +2,18 @@
 #include <stdlib.h>
 #include "string.h"
 #include "data_function.h"
+#include "pse.h"
+
+void *autoSave(void *arg)
+{
+	DataUtilisateurTete* tete_data_users = (DataUtilisateurTete*) arg;
+	while(1)
+	{
+		sleep(SAVE_DELAY);
+		printf("[Sauvegarde Periodique]>Sauvegarde des données...\n");
+		saveDataInFile(tete_data_users->tete_users, &tete_data_users->info);
+	}
+}
 
 DataUtilisateur* finUserById(DataUtilisateur* users, int id_user)
 {
@@ -32,9 +44,8 @@ void addUtilisateur(DataUtilisateur* users, char pseudo[BUFFER_PSEUDO], char mdp
 	//On initialise si c'est le premier utilisateurs
 	DataUtilisateur* current_user = users;
 	DataUtilisateur* precedent_user = users;
-	DataUtilisateur* new_dataUser;
 	int id = 0;
-	if(users->utilisateur != NULL)
+	if(current_user->utilisateur != NULL)
 	{
 		while(current_user != NULL)
 		{
@@ -42,13 +53,13 @@ void addUtilisateur(DataUtilisateur* users, char pseudo[BUFFER_PSEUDO], char mdp
 			current_user = current_user->suiv;
 			id++;
 		}
-		new_dataUser = (DataUtilisateur*) malloc(sizeof(DataUtilisateur));
+		DataUtilisateur* new_dataUser = (DataUtilisateur*) malloc(sizeof(DataUtilisateur));
 		initDataUtilisateur(new_dataUser);
 		precedent_user->suiv = new_dataUser;
 		Utilisateur* new_user = (Utilisateur*) malloc(sizeof(Utilisateur));
 		strcpy(new_user->pseudo, pseudo);
 		strcpy(new_user->mdp, mdp);
-		new_user->id = id;
+		new_user->id = precedent_user->utilisateur->id+1;
 		new_dataUser->utilisateur = new_user;
 	}
 	else
@@ -56,10 +67,42 @@ void addUtilisateur(DataUtilisateur* users, char pseudo[BUFFER_PSEUDO], char mdp
 		Utilisateur* new_user = (Utilisateur*) malloc(sizeof(Utilisateur));
 		strcpy(new_user->pseudo, pseudo);
 		strcpy(new_user->mdp, mdp);
-		new_user->id = id;
+		new_user->id = 0;
 		users->utilisateur = new_user;
 	}
 	info->nb_utilisateur++;
+}
+
+int deleteUserById(DataUtilisateurTete* data_users, int user_id)
+{
+	//On initialise si c'est le premier utilisateurs
+	DataUtilisateur* current_user = data_users->tete_users;
+	DataUtilisateur* precedent_user = data_users->tete_users;
+	if(current_user->utilisateur->id == user_id)
+	{
+		//Si l'utilisateur a delete est le premier
+		data_users->tete_users = data_users->tete_users->suiv;
+		current_user->suiv = NULL;
+		freeUser(current_user);
+	}
+	else
+	{
+		while(current_user->utilisateur->id != user_id)
+		{
+			precedent_user = current_user;
+			current_user = current_user->suiv;
+			if(current_user == NULL)
+			{
+				printf("L'utilisateur n'existe pas\n");
+				return 1;
+			}
+		}
+		precedent_user->suiv = current_user->suiv;
+		current_user->suiv = NULL;
+		freeUser(current_user);
+	}
+	data_users->info.nb_utilisateur--;
+	return 0;
 }
 
 void addPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PUBLI])
@@ -82,12 +125,18 @@ void addPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PUBLI
 	if(current_user->publication != NULL)
 	{
 		precedent_publi->suiv = new_publi; 
+		new_publi->id = precedent_publi->id + 1;
 	}
 	else
 	{
 		current_user->publication = new_publi;
+		new_publi->id = 0;
 	}
 	current_user->nb_publication++;
+}
+
+void deletePublicationById(DataUtilisateurTete* data_users, int publication_id)
+{
 }
 
 void addAbonnement(DataUtilisateur* users, int id_user, int id_abonnement)
@@ -147,7 +196,7 @@ void printPublicationUser(DataUtilisateur* current_datauser)
 	Publication* current_publi = current_datauser->publication;
 	while(current_publi != NULL)
 	{
-		printf("	Publication: %s\n", current_publi->texte);
+		printf("	Publication id:%d: %s\n", current_publi->id, current_publi->texte);
 		current_publi = current_publi->suiv;
 	}
 }
@@ -205,7 +254,17 @@ void initDataUtilisateur(DataUtilisateur* users)
 	users->nb_abonnement = 0;
 }
 
-void loadDataFromFile(DataUtilisateur* users, DataInfo* info)
+int getLastUserId(DataUtilisateurTete* data_users)
+{
+	DataUtilisateur* current_user = data_users->tete_users;
+	while (current_user->suiv != NULL) 
+	{
+		current_user = current_user->suiv;
+	}
+	return current_user->utilisateur->id;
+}
+
+void loadDataFromFile(DataUtilisateurTete* data_users)
 {
 	FILE* fichier;
 	fichier = fopen("data_1.txt", "r");
@@ -213,13 +272,14 @@ void loadDataFromFile(DataUtilisateur* users, DataInfo* info)
 	{
 		int nb_utilisateur = 0;
 		fscanf(fichier, "%d\n", &nb_utilisateur);
-		printf("Enregistrement de %d utilisateurs\n", nb_utilisateur);
+		printf("Lecture de %d utilisateurs\n", nb_utilisateur);
 		for(int i = 0; i<nb_utilisateur; i++)
 		{
 			Utilisateur utilisateur;
 			fscanf(fichier, "%d %s %s", &utilisateur.id, utilisateur.pseudo, utilisateur.mdp);
-			addUtilisateur(users, utilisateur.pseudo, utilisateur.mdp, info);
+			addUtilisateur(data_users->tete_users, utilisateur.pseudo, utilisateur.mdp, &data_users->info);
 		}
+		
 		for(int i = 0; i<nb_utilisateur; i++)
 		{
 			int id = 0;
@@ -233,7 +293,7 @@ void loadDataFromFile(DataUtilisateur* users, DataInfo* info)
 				{
 					fscanf(fichier, "%s", publication.texte);
 					fscanf(fichier, "%d %d %d\n", &publication.date.jour, &publication.date.mois, &publication.date.annee);
-					addPublication(users, id, publication.texte);
+					addPublication(data_users->tete_users, id, publication.texte);
 				}
 			}
 			//Sauvegarde des abonnements
@@ -245,7 +305,7 @@ void loadDataFromFile(DataUtilisateur* users, DataInfo* info)
 				for(int j = 0; j<nb_abonnement; j++)
 				{
 					fscanf(fichier, "%d", &id_abonnement);
-					addAbonnement(users, id, id_abonnement);
+					addAbonnement(data_users->tete_users, id, id_abonnement);
 				}
 			}
 			//Sauvegarde des abonnes
@@ -257,7 +317,7 @@ void loadDataFromFile(DataUtilisateur* users, DataInfo* info)
 				for(int j = 0; j<nb_abonne; j++)
 				{
 					fscanf(fichier, "%d", &id_abonne);
-					addAbonne(users, id, id_abonne);
+					addAbonne(data_users->tete_users, id, id_abonne);
 				}
 			}
 		}
@@ -265,7 +325,7 @@ void loadDataFromFile(DataUtilisateur* users, DataInfo* info)
 	}
 	else
 	{
-		printf("Erreur lors de l'ouverture du fichier de données");
+		printf("Erreur lors de l'ouverture du fichier de données\n");
 	}
 }
 
@@ -328,8 +388,41 @@ void saveDataInFile(DataUtilisateur* users, DataInfo* info)
 	}
 	else
 	{
-		printf("Erreur lors de l'ouverture du fichier de données");
+		printf("Erreur lors de l'ouverture du fichier de données\n");
 	}
+}
+
+void freePublication(Publication* publication)
+{
+	Publication* current_publi = publication;
+	Publication* precedent_publi = publication;
+	while(current_publi != NULL)
+	{
+		precedent_publi = current_publi;
+		current_publi = current_publi->suiv;
+		free(precedent_publi);
+	}
+}
+
+void freeUtilisateurChaine(UtilisateurChaine* abonnes)
+{
+	UtilisateurChaine* current_abo = abonnes;
+	UtilisateurChaine* precedent_abo = abonnes;
+	while(current_abo != NULL)
+	{
+		precedent_abo = current_abo;
+		current_abo = current_abo->suiv;
+		free(precedent_abo);
+	}
+}
+
+void freeUser(DataUtilisateur* users)
+{
+	freePublication(users->publication);
+	free(users->utilisateur);
+	freeUtilisateurChaine(users->abonnements);
+	freeUtilisateurChaine(users->abonnes);
+	free(users);
 }
 
 void freeDataMemory(DataUtilisateur* users)

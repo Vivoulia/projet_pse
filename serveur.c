@@ -31,8 +31,7 @@ sem_t sem_;
 unsigned int lgAdrClient;
 int ecoute, ret;
 
-DataUtilisateur users;
-DataInfo info;
+DataUtilisateurTete data_users;
 
 void *receiveClient(void *arg)
 {
@@ -59,7 +58,7 @@ void *receiveClient(void *arg)
 						break;
 					case (SEND_PSEUDO_REQUEST) :
 						nbRead = lireLigne(tc->canal,buf);
-						courant = findUserByPseudo(&users, buf);
+						courant = findUserByPseudo(data_users.tete_users, buf);
 						switch(tc->state)
 						{
 							case (CONNECTION_REQUEST) :
@@ -108,8 +107,8 @@ void *receiveClient(void *arg)
 								if (nbRead > 0)
 								{
 									tc->event = SEND_REGISTER_SUCCESS;
-									addUtilisateur(&users,psdo,buf,&info);
-									courant = findUserByPseudo(&users, psdo);
+									addUtilisateur(data_users.tete_users,psdo,buf,&data_users.info);
+									courant = findUserByPseudo(data_users.tete_users, psdo);
 								}
 								break;
 						}
@@ -212,11 +211,25 @@ void *sendClient(void *arg)
 int main(int argc, char *argv[])
 {
 	//chargeement de la base de données
-	info.nb_utilisateur = 0;
-	initDataUtilisateur(&users);
-	loadDataFromFile(&users, &info);
-	printData(&users);
-	printf("test 3\n");
+	//On initialise la tête
+	data_users.tete_users = (DataUtilisateur*) malloc(sizeof(DataUtilisateur));
+	initDataUtilisateur(data_users.tete_users);
+	//On initialise les infos
+	data_users.info.nb_utilisateur = 0;
+	data_users.info.nb_publication = 0;
+	//On charge les utilisateurs
+	loadDataFromFile(&data_users);
+	//On affiche toutes les données
+	printData(data_users.tete_users);
+	addUtilisateur(data_users.tete_users, "Vivien", "mdp", &data_users.info);
+	printData(data_users.tete_users);
+	
+	//Création du thread de sauvegarde
+	if (pthread_create(&data_users.info.id_thread_save, NULL, autoSave, &data_users) != 0) 
+		erreur_IO("creation of saving thread");
+	//debug et test
+	int id_last_user = getLastUserId(&data_users);
+	printf("%d", id_last_user);
 	short port;
 	
 	if (argc != 2)
