@@ -33,8 +33,7 @@ sem_t sem_;
 unsigned int lgAdrClient;
 int ecoute, ret;
 
-DataUtilisateur users;
-DataInfo info;
+DataUtilisateurTete data_users;
 
 
 
@@ -62,6 +61,7 @@ void *receiveClient(void *arg)
 				}
 				if (strcmp(buf,"fin") == 0)	//Vérification à chaque entrée si l'utilisateur veut quitter
 				{
+<<<<<<< HEAD
 					tc->event = LEAVING_SERV;
 					sem_post(&tc->sem_w);
 					break;
@@ -150,6 +150,77 @@ void *receiveClient(void *arg)
 			sem_post(&tc->sem_w);
 			sem_wait(&tc->sem_r);
 		}
+=======
+					case (JOINING_SERV) :
+						lireLigne(tc->canal,buf);
+						if (strcmp(buf, "connection") == 0)
+							tc->event = SEND_CONNECTION_DEMAND;
+						else if (strcmp(buf, "register") == 0)
+							tc->event = SEND_REGISTER_DEMAND;
+						break;
+					case (SEND_PSEUDO_REQUEST) :
+						nbRead = lireLigne(tc->canal,buf);
+						courant = findUserByPseudo(data_users.tete_users, buf);
+						switch(tc->state)
+						{
+							case (CONNECTION_REQUEST) :
+								if(courant != NULL)
+								{
+									printf("%s veut se connecter au serveur\n", courant->utilisateur->pseudo);
+									tc->event = SEND_MDP_REQUEST;
+								}
+								else
+								{
+									//Utilisateur introuvable
+									printf("erreur ... %s n'existe pas\n",buf);
+								}
+								break;
+							case (REGISTER_REQUEST) :
+								if(courant != NULL)
+								{
+									printf("%s déja pris\n", courant->utilisateur->pseudo);
+								}
+								else
+								{
+									strcpy(psdo, buf);
+									printf("%s s'inscrit sur le serveur \n", buf);
+									tc->event = SEND_MDP_REQUEST;
+								}
+								break;
+						}
+						break;
+						
+						
+					case (SEND_MDP_REQUEST) :
+						nbRead = lireLigne(tc->canal,buf);
+						switch(tc->state)
+						{
+							case (CONNECTION_REQUEST) :
+								if ( strcmp(buf, courant->utilisateur->mdp) == 0)
+									tc->event = SEND_CONNECTION_SUCCESS;
+								else 
+								{
+									try_mdp--;
+									if (try_mdp < 0)
+										tc->event = ERROR_MDP;
+								}
+								break;
+							case (REGISTER_REQUEST) :
+								if (nbRead > 0)
+								{
+									tc->event = SEND_REGISTER_SUCCESS;
+									addUtilisateur(data_users.tete_users,psdo,buf,&data_users.info);
+									courant = findUserByPseudo(data_users.tete_users, psdo);
+								}
+								break;
+						}
+						break;
+					case (WAITING) :
+						nbRead = lireLigne(tc->canal, buf);
+						break;
+				}		
+				sem_post(&tc->sem_w);
+>>>>>>> donnee_user
 	}
 }
 
@@ -257,11 +328,23 @@ void *sendClient(void *arg)
 int main(int argc, char *argv[])
 {
 	//chargeement de la base de données
-	info.nb_utilisateur = 0;
-	initDataUtilisateur(&users);
-	loadDataFromFile(&users, &info);
-	printData(&users);
-	printf("test 3\n");
+	//On initialise la tête
+	data_users.tete_users = (DataUtilisateur*) malloc(sizeof(DataUtilisateur));
+	initDataUtilisateur(data_users.tete_users);
+	//On initialise les infos
+	data_users.info.nb_utilisateur = 0;
+	data_users.info.nb_publication = 0;
+	//On charge les utilisateurs
+	loadDataFromFile(&data_users);
+	//On affiche toutes les données
+	printData(data_users.tete_users);
+	
+	//Création du thread de sauvegarde
+	if (pthread_create(&data_users.info.id_thread_save, NULL, autoSave, &data_users) != 0) 
+		erreur_IO("creation of saving thread");
+	//debug et test
+	int id_last_user = getLastUserId(&data_users);
+	printf("%d", id_last_user);
 	short port;
 	
 	if (argc != 2)
