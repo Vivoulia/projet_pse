@@ -264,6 +264,7 @@ int main(int argc, char *argv[])
 	//On affiche toutes les données
 	printData(data_users.tete_users);
 	addAbonnementByPseudo(&data_users ,data_users.tete_users->suiv, "Lucas");
+	addNewPublication(data_users.tete_users, 1, "Publication nouvelle gen");
 	printData(data_users.tete_users);
 	//Création du thread de sauvegarde
 	if (pthread_create(&data_users.info.id_thread_save, NULL, autoSave, &data_users) != 0) 

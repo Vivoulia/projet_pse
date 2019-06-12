@@ -1,7 +1,9 @@
+#include <time.h>
+
 #define BUFFER_PSEUDO 50
 #define BUFFER_MDP 50
 #define BUFFER_PUBLI 140
-#define SAVE_DELAY 300
+#define SAVE_DELAY 60
 
 typedef struct Publication Publication;
 typedef struct Date Date;
@@ -18,7 +20,8 @@ DataUtilisateur* findUserByPseudo(DataUtilisateur* users, char pseudo[]);
 void initDataUtilisateur(DataUtilisateur* users);
 
 void addUtilisateur(DataUtilisateur* users, char pseudo[BUFFER_PSEUDO], char mdp[BUFFER_MDP], DataInfo* info);
-void addPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PUBLI]);
+void addPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PUBLI], struct tm* date);
+void addNewPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PUBLI]);
 void addAbonnement(DataUtilisateur* users, int id_user, int id_abonnement);
 int addAbonnementByPseudo(DataUtilisateurTete* data_users, DataUtilisateur* current_user, char pseud_abonnement[]);
 void addAbonne(DataUtilisateur* users, int id_user, int id_abonnee);
@@ -52,7 +55,7 @@ struct Date
 struct Publication
 {
 	char texte[BUFFER_PUBLI];
-	Date date;
+	struct tm* date;
 	Publication* suiv;
 	int id;
 };
