@@ -20,6 +20,7 @@ void initDataUtilisateur(DataUtilisateur* users);
 void addUtilisateur(DataUtilisateur* users, char pseudo[BUFFER_PSEUDO], char mdp[BUFFER_MDP], DataInfo* info);
 void addPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PUBLI]);
 void addAbonnement(DataUtilisateur* users, int id_user, int id_abonnement);
+int addAbonnementByPseudo(DataUtilisateurTete* data_users, DataUtilisateur* current_user, char pseud_abonnement[]);
 void addAbonne(DataUtilisateur* users, int id_user, int id_abonnee);
 
 int deleteUserById(DataUtilisateurTete* data_users, int user_id);

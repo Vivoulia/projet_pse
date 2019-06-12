@@ -283,6 +283,38 @@ void addAbonnement(DataUtilisateur* users, int id_user, int id_abonnement)
 	addAbonne(users, id_abonnement, id_user);
 }
 
+int addAbonnementByPseudo(DataUtilisateurTete* data_users, DataUtilisateur* current_user, char pseud_abonnement[])
+{
+	DataUtilisateur* user_abonnement = findUserByPseudo(data_users->tete_users, pseud_abonnement);
+	if(user_abonnement == NULL)
+	{
+		printf("L'utilisateur n'existe pas");
+		return 1;
+	}
+	
+	UtilisateurChaine* current_user_abonnement = current_user->abonnements;
+	UtilisateurChaine* precedent_user_abonnement = current_user->abonnements;
+	while(current_user_abonnement != NULL)
+	{
+		precedent_user_abonnement = current_user_abonnement;
+		current_user_abonnement = current_user_abonnement->suiv;
+	}
+	UtilisateurChaine* new_user_chaine = (UtilisateurChaine*) malloc(sizeof(UtilisateurChaine));
+	new_user_chaine->utilisateur = user_abonnement->utilisateur;
+	new_user_chaine->suiv = NULL;
+	if(current_user->abonnements != NULL)
+	{
+		precedent_user_abonnement->suiv = new_user_chaine;
+	}
+	else
+	{
+		current_user->abonnements = new_user_chaine;
+	}
+	current_user->nb_abonnement++;
+	addAbonne(data_users->tete_users, user_abonnement->utilisateur->id, current_user->utilisateur->id);
+	return 0;
+}
+
 void addAbonne(DataUtilisateur* users, int id_user, int id_abonnee)
 {
 	DataUtilisateur* current_user = findUserById(users, id_user);
