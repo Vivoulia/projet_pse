@@ -35,9 +35,6 @@ int ecoute, ret;
 
 DataUtilisateurTete data_users;
 
-
-
-
 void *receiveClient(void *arg)
 {
 	Thread_Data *tc = (Thread_Data*) arg;
@@ -56,12 +53,11 @@ void *receiveClient(void *arg)
 			{
 				if ((nbRead =lireLigne(tc->canal,buf)) <= 0)
 				{
-					tc->canal == -1;
+					tc->canal = -1;
 					break;
 				}
 				if (strcmp(buf,"fin") == 0)	//Vérification à chaque entrée si l'utilisateur veut quitter
 				{
-<<<<<<< HEAD
 					tc->event = LEAVING_SERV;
 					sem_post(&tc->sem_w);
 					break;
@@ -85,7 +81,7 @@ void *receiveClient(void *arg)
 					tc->event = SEND_PSEUDO_REQUEST;
 					break;
 				case (CONNECTION_REQUEST_PSEUDO) :
-					tc->user = findUserByPseudo(&users, buf);
+					tc->user = findUserByPseudo(data_users.tete_users, buf);
 					if(tc->user != NULL)
 					{
 						printf("%s veut se connecter au serveur\n", tc->user->utilisateur->pseudo);
@@ -98,7 +94,7 @@ void *receiveClient(void *arg)
 					}
 					break;
 				case (REGISTER_REQUEST_PSEUDO) :
-					tc->user = findUserByPseudo(&users, buf);
+					tc->user = findUserByPseudo(data_users.tete_users, buf);
 					if(tc->user != NULL)
 					{
 						printf("%s déja pris\n", tc->user->utilisateur->pseudo);
@@ -124,8 +120,8 @@ void *receiveClient(void *arg)
 					if (nbRead > 0)
 					{
 						tc->event = SEND_CONNECTION_SUCCESS;
-						addUtilisateur(&users,psdo,buf,&info);
-						tc->user = findUserByPseudo(&users, psdo);
+						addUtilisateur(data_users.tete_users,psdo,buf,&data_users.info);
+						tc->user = findUserByPseudo(data_users.tete_users, psdo);
 					}
 					else
 						tc->event = SEND_CONNECTION_FAILED;
@@ -150,77 +146,6 @@ void *receiveClient(void *arg)
 			sem_post(&tc->sem_w);
 			sem_wait(&tc->sem_r);
 		}
-=======
-					case (JOINING_SERV) :
-						lireLigne(tc->canal,buf);
-						if (strcmp(buf, "connection") == 0)
-							tc->event = SEND_CONNECTION_DEMAND;
-						else if (strcmp(buf, "register") == 0)
-							tc->event = SEND_REGISTER_DEMAND;
-						break;
-					case (SEND_PSEUDO_REQUEST) :
-						nbRead = lireLigne(tc->canal,buf);
-						courant = findUserByPseudo(data_users.tete_users, buf);
-						switch(tc->state)
-						{
-							case (CONNECTION_REQUEST) :
-								if(courant != NULL)
-								{
-									printf("%s veut se connecter au serveur\n", courant->utilisateur->pseudo);
-									tc->event = SEND_MDP_REQUEST;
-								}
-								else
-								{
-									//Utilisateur introuvable
-									printf("erreur ... %s n'existe pas\n",buf);
-								}
-								break;
-							case (REGISTER_REQUEST) :
-								if(courant != NULL)
-								{
-									printf("%s déja pris\n", courant->utilisateur->pseudo);
-								}
-								else
-								{
-									strcpy(psdo, buf);
-									printf("%s s'inscrit sur le serveur \n", buf);
-									tc->event = SEND_MDP_REQUEST;
-								}
-								break;
-						}
-						break;
-						
-						
-					case (SEND_MDP_REQUEST) :
-						nbRead = lireLigne(tc->canal,buf);
-						switch(tc->state)
-						{
-							case (CONNECTION_REQUEST) :
-								if ( strcmp(buf, courant->utilisateur->mdp) == 0)
-									tc->event = SEND_CONNECTION_SUCCESS;
-								else 
-								{
-									try_mdp--;
-									if (try_mdp < 0)
-										tc->event = ERROR_MDP;
-								}
-								break;
-							case (REGISTER_REQUEST) :
-								if (nbRead > 0)
-								{
-									tc->event = SEND_REGISTER_SUCCESS;
-									addUtilisateur(data_users.tete_users,psdo,buf,&data_users.info);
-									courant = findUserByPseudo(data_users.tete_users, psdo);
-								}
-								break;
-						}
-						break;
-					case (WAITING) :
-						nbRead = lireLigne(tc->canal, buf);
-						break;
-				}		
-				sem_post(&tc->sem_w);
->>>>>>> donnee_user
 	}
 }
 
