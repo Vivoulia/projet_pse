@@ -221,8 +221,6 @@ int main(int argc, char *argv[])
 	loadDataFromFile(&data_users);
 	//On affiche toutes les données
 	printData(data_users.tete_users);
-	addUtilisateur(data_users.tete_users, "Vivien", "mdp", &data_users.info);
-	printData(data_users.tete_users);
 	
 	//Création du thread de sauvegarde
 	if (pthread_create(&data_users.info.id_thread_save, NULL, autoSave, &data_users) != 0) 

@@ -13,7 +13,7 @@ typedef struct DataUtilisateurTete DataUtilisateurTete;
 
 void *autoSave(void *arg);
 
-DataUtilisateur* finUserById(DataUtilisateur* users, int id_user);
+DataUtilisateur* findUserById(DataUtilisateur* users, int id_user);
 DataUtilisateur* findUserByPseudo(DataUtilisateur* users, char pseudo[]);
 void initDataUtilisateur(DataUtilisateur* users);
 
@@ -23,7 +23,9 @@ void addAbonnement(DataUtilisateur* users, int id_user, int id_abonnement);
 void addAbonne(DataUtilisateur* users, int id_user, int id_abonnee);
 
 int deleteUserById(DataUtilisateurTete* data_users, int user_id);
-void deletePublicationById(DataUtilisateurTete* data_users, int publication_id);
+int deletePublicationById(DataUtilisateur* current_user, int publication_id);
+int deleteAbonnementByPseudo(DataUtilisateurTete* data_users, DataUtilisateur* current_user, char user_abonnement_pseudo[]);
+int deleteAbonneByPseudo(DataUtilisateurTete* data_users, DataUtilisateur* current_user, char user_abonnement_pseudo[]);
 
 void printPublicationUser(DataUtilisateur* current_datauser);
 void printAbonnementsUser(DataUtilisateur* current_datauser);

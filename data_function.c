@@ -15,7 +15,7 @@ void *autoSave(void *arg)
 	}
 }
 
-DataUtilisateur* finUserById(DataUtilisateur* users, int id_user)
+DataUtilisateur* findUserById(DataUtilisateur* users, int id_user)
 {
 	DataUtilisateur* current_user = users;
 	while(current_user->utilisateur->id != id_user)
@@ -107,7 +107,7 @@ int deleteUserById(DataUtilisateurTete* data_users, int user_id)
 
 void addPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PUBLI])
 {
-	DataUtilisateur* current_user = finUserById(users, id_user);
+	DataUtilisateur* current_user = findUserById(users, id_user);
 	//On parcours les publications
 	Publication* current_publi = current_user->publication;
 	Publication* precedent_publi = current_user->publication;
@@ -135,14 +135,131 @@ void addPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PUBLI
 	current_user->nb_publication++;
 }
 
-void deletePublicationById(DataUtilisateurTete* data_users, int publication_id)
+int deletePublicationById(DataUtilisateur* current_user, int publication_id)
 {
+	/*Fonction qui supprime la publication d'un utilisateur. Elle prends en paramètre un pointeur vers cette utilisateur et l'id de la publication a supprimer*/
+	Publication* current_publi = current_user->publication;
+	Publication* precedent_publi = current_user->publication;
+	if(current_publi == NULL)
+	{
+		//Si l'utilisateur n'a aucune publication
+		printf("L'utilisateur n'a aucune publication a supprimer\n");
+		return 1;
+	}
+	else if(current_publi->id == publication_id)
+	{
+		//Si la publication est la première
+		current_user->publication = current_user->publication->suiv;
+		precedent_publi->suiv = NULL;
+		freePublication(precedent_publi);
+	}
+	else
+	{
+		//Sinon on parcours les publications
+	 	while(current_publi->id != publication_id)
+		{	
+			precedent_publi = current_publi;
+			current_publi = current_publi->suiv;
+			if(current_publi == NULL)
+			{
+				printf("La publication n'existe pas\n");
+				return 1;
+			}
+		}
+		precedent_publi->suiv = current_publi->suiv;
+		current_publi->suiv = NULL;
+		freePublication(current_publi);
+	}
+	return 0;
+}
+
+int deleteAbonnementByPseudo(DataUtilisateurTete* data_users, DataUtilisateur* current_user, char user_abonnement_pseudo[])
+{
+	/*Fonction qui supprime l'abonnement d'un utilisateur. Elle prends en paramètre un pointeur vers cette utilisateur et le pseudo de l'utilisateur a ne plus suivre*/
+	DataUtilisateur* utilisateur_abo = findUserByPseudo(data_users->tete_users, user_abonnement_pseudo);
+	UtilisateurChaine* current_abo = current_user->abonnements;
+	UtilisateurChaine* precedent_abo = current_user->abonnements;
+	//D'abords on doit supprimer l'abonnement de l'utilisateur courant
+	if(current_abo == NULL)
+	{
+		//Si l'utilisateur n'a pas d'abonnement
+		printf("L'utilisateur n'a aucune abonnement a supprimer\n");
+		return 1;
+	}
+	else if (strcmp(current_abo->utilisateur->pseudo,user_abonnement_pseudo) == 0)
+	{
+		//Si l'abonnement est le premier
+		current_user->abonnements = current_user->abonnements->suiv;
+		precedent_abo->suiv = NULL;
+		freeUtilisateurChaine(precedent_abo);
+	}
+	else
+	{
+		//Sinon on parcours les abonnements
+	 	while(strcmp(current_abo->utilisateur->pseudo,user_abonnement_pseudo) == 0)
+		{	
+			precedent_abo = current_abo;
+			current_abo = current_abo->suiv;
+			if(current_abo == NULL)
+			{
+				printf("La publication n'existe pas\n");
+				return 1;
+			}
+		}
+		precedent_abo->suiv = current_abo->suiv;
+		current_abo->suiv = NULL;
+		freeUtilisateurChaine(current_abo);
+	}
+	//Ensuite on doit supprimer l'abonne de l'utilisateur de l'abonnement
+	deleteAbonneByPseudo(data_users, utilisateur_abo, current_user->utilisateur->pseudo);
+	return 0;
+
+	
+}
+
+int deleteAbonneByPseudo(DataUtilisateurTete* data_users, DataUtilisateur* current_user, char user_abonnement_pseudo[])
+{
+	/*Fonction qui supprime l'abonne d'un utilisateur. Elle prends en paramètre un pointeur vers cette utilisateur et le pseudo de l'utilisateur a ne plus suivre*/
+	UtilisateurChaine* current_abo = current_user->abonnes;
+	UtilisateurChaine* precedent_abo = current_user->abonnes;
+	//D'abords on doit supprimer l'abonnement de l'utilisateur courant
+	if(current_abo == NULL)
+	{
+		//Si l'utilisateur n'a pas d'abonnement
+		printf("L'utilisateur n'a aucune abonnement a supprimer\n");
+		return 1;
+	}
+	else if (strcmp(current_abo->utilisateur->pseudo,user_abonnement_pseudo) == 0)
+	{
+		//Si l'abonnement est le premier
+		current_user->abonnes = current_user->abonnes->suiv;
+		precedent_abo->suiv = NULL;
+		freeUtilisateurChaine(precedent_abo);
+	}
+	else
+	{
+		//Sinon on parcours les abonnements
+	 	while(strcmp(current_abo->utilisateur->pseudo,user_abonnement_pseudo) == 0)
+		{	
+			precedent_abo = current_abo;
+			current_abo = current_abo->suiv;
+			if(current_abo == NULL)
+			{
+				printf("La publication n'existe pas\n");
+				return 1;
+			}
+		}
+		precedent_abo->suiv = current_abo->suiv;
+		current_abo->suiv = NULL;
+		freeUtilisateurChaine(current_abo);
+	}
+	return 0;
 }
 
 void addAbonnement(DataUtilisateur* users, int id_user, int id_abonnement)
 {
-	DataUtilisateur* current_user = finUserById(users, id_user);
-	DataUtilisateur* user_abonnement = finUserById(users, id_abonnement);
+	DataUtilisateur* current_user = findUserById(users, id_user);
+	DataUtilisateur* user_abonnement = findUserById(users, id_abonnement);
 	
 	UtilisateurChaine* current_user_abonnement = current_user->abonnements;
 	UtilisateurChaine* precedent_user_abonnement = current_user->abonnements;
@@ -163,12 +280,13 @@ void addAbonnement(DataUtilisateur* users, int id_user, int id_abonnement)
 		current_user->abonnements = new_user_chaine;
 	}
 	current_user->nb_abonnement++;
+	addAbonne(users, id_abonnement, id_user);
 }
 
 void addAbonne(DataUtilisateur* users, int id_user, int id_abonnee)
 {
-	DataUtilisateur* current_user = finUserById(users, id_user);
-	DataUtilisateur* user_abonnee = finUserById(users, id_abonnee);
+	DataUtilisateur* current_user = findUserById(users, id_user);
+	DataUtilisateur* user_abonnee = findUserById(users, id_abonnee);
 	
 	UtilisateurChaine* current_user_abonnee = current_user->abonnes;
 	UtilisateurChaine* precedent_user_abonnee = current_user->abonnes;
@@ -427,7 +545,14 @@ void freeUser(DataUtilisateur* users)
 
 void freeDataMemory(DataUtilisateur* users)
 {
-	printf("A faire");
+	DataUtilisateur* current_user = users;
+	DataUtilisateur* precedent_user = users;
+	while(current_user != NULL)
+	{
+		precedent_user = current_user;
+		current_user = current_user->suiv;
+		free(precedent_user);
+	}
 }
 
 
