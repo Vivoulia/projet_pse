@@ -5,7 +5,7 @@
 typedef struct Thread {
 	pthread_t Rid;
 	pthread_t Wid;
-	int tid;
+	int tid; 
 	int canal;
 	sem_t sem;
 	sem_t sem_w;
@@ -18,15 +18,20 @@ void *listenServer(void *arg)
 {
 	Thread_Data *tc = (Thread_Data*) arg;
 	char buf[BUF_SIZE];
+	char ans_client[BUF_SIZE];
 	int nbRead = 0;
 	while(1)
 	{
+		nbRead = lireLigne(tc->canal,ans_client);
+		if(nbRead == -1)
+			erreur_IO("lireLigne");
 		nbRead = lireLigne(tc->canal,buf);
 		if(nbRead == -1)
 			erreur_IO("lireLigne");
-		printf("Reception: %s\n", buf);
+		printf("%s\n", buf);
 		//On a reçu un message on laisse le client répondre
-		sem_post(&tc->sem_w);
+		if (strcmp(ans_client,"1")==0)
+			sem_post(&tc->sem_w);
 	}
 	
 	exit(EXIT_SUCCESS);
