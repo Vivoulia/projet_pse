@@ -8,9 +8,9 @@
 
 
 
-enum states {NOT_JOINED,NOT_CONNECTED,TRY_CONNECTION, CONNECTION_REQUEST, REGISTER_REQUEST, CONNECTION_REQUEST_PSEUDO, REGISTER_REQUEST_PSEUDO, CONNECTION_REQUEST_MDP, REGISTER_REQUEST_MDP, CHECK_CONNECTION, CHECK_REGISTER, CONNECTED, WAIT_FOR_COMMAND};
+enum states {NOT_JOINED,NOT_CONNECTED,TRY_CONNECTION, CONNECTION_REQUEST, REGISTER_REQUEST, CONNECTION_REQUEST_PSEUDO, REGISTER_REQUEST_PSEUDO, CONNECTION_REQUEST_MDP, REGISTER_REQUEST_MDP, CHECK_CONNECTION, CHECK_REGISTER, CONNECTED, WAIT_FOR_COMMAND, PUBLISHING};
 
-enum events {LEAVING_SERV, JOINING_SERV, SEND_CONNECTION_DEMAND, SEND_REGISTER_DEMAND, SEND_PSEUDO_REQUEST, SEND_MDP_REQUEST, SEND_CONNECTION_FAILED, SEND_CONNECTION_SUCCESS, SEND_HOMEPAGE, PUBLISH, VIEW_STAT, LIKE, FOLLOW, UNFOLLOW};
+enum events {LEAVING_SERV, JOINING_SERV, SEND_CONNECTION_DEMAND, SEND_REGISTER_DEMAND, SEND_PSEUDO_REQUEST, SEND_MDP_REQUEST, SEND_CONNECTION_FAILED, SEND_CONNECTION_SUCCESS, SEND_HOMEPAGE, PUBLISH,SEND_PUBLICATION, VIEW_PUBLI, VIEW_STAT, LIKE, FOLLOW, UNFOLLOW};
 
 typedef struct {
 	pthread_t Rid;
@@ -39,6 +39,8 @@ void *receiveClient(void *arg)
 {
 	Thread_Data *tc = (Thread_Data*) arg;
 	char buf[BUF_SIZE];
+	char follow[7];
+	char publi[BUFFER_PUBLI];
 	int nbRead;
 	int try_mdp = 5;
 	char psdo[BUFFER_PSEUDO];
@@ -130,6 +132,7 @@ void *receiveClient(void *arg)
 					tc->event = SEND_HOMEPAGE;
 					break;
 				case (WAIT_FOR_COMMAND) :
+					strncpy(follow,buf,7); 
 					if (strcmp(buf,"/publish") == 0 || strcmp(buf,"/p") == 0)
 					{
 						tc->event = PUBLISH;
@@ -138,10 +141,19 @@ void *receiveClient(void *arg)
 					{
 						tc->event = VIEW_STAT;
 					}
-					if (strcmp(buf,"/follow") == 0 || strcmp(buf,"/f") == 0)
+					else if (strcmp(follow,"/follow") == 0 )
 					{
+						strtok(buf," ");
+						addAbonnementByPseudo(&data_users ,data_users.tete_users->suiv, strtok(NULL," "));
 						tc->event = FOLLOW;
+						strcpy(follow,"nothin");
 					}
+					break;
+				case (PUBLISHING) :
+					strcpy(publi,buf);
+					addNewPublication(data_users.tete_users, tc->user->utilisateur->id,publi);
+					tc->event = SEND_PUBLICATION;
+					break;
 			}
 			sem_post(&tc->sem_w);
 			sem_wait(&tc->sem_r);
@@ -169,7 +181,13 @@ void *sendClient(void *arg)
 					strcpy(buf,"Tapez \"/connection\" pour se connecter ou \"/register\" pour s'inscrire");
 					tc->state = TRY_CONNECTION;
 					break;
-	
+				case (LEAVING_SERV) :
+					close(tc->canal);
+					tc->canal = -1;
+					tc->event = JOINING_SERV;
+					tc->state = NOT_JOINED;
+					tc->user = NULL;
+					break;
 				case (SEND_CONNECTION_DEMAND) :
 					strcpy(ans_client,"0");
 					strcpy(buf, "Connexion");
@@ -234,6 +252,27 @@ void *sendClient(void *arg)
 					strcpy(buf,"Bienvenue sur ZETIR ! Le réseau social du futur ! Partagez votre vie privée qui n'interressent personne avec tous vos abonnés !");
 					tc->state = WAIT_FOR_COMMAND;
 					break;
+				case (PUBLISH) :
+					strcpy(ans_client,"1");
+					strcpy(buf,"Tapez le contenu de votre publication (140 caractères maximum)");
+					tc->state = PUBLISHING;
+					break;
+				case (SEND_PUBLICATION) :
+					strcpy(ans_client,"0");
+					strcpy(buf,"Publication envoyée");
+					tc->event = SEND_HOMEPAGE;
+					tc->state = CONNECTED;
+					break;
+				case (VIEW_PUBLI) :
+					strcpy(ans_client,"0");
+					tc->state = CONNECTED;
+					break;
+				case (FOLLOW) :
+					strcpy(ans_client,"0");
+					strcpy(buf,"Abonnement réussi");
+					tc->event = SEND_HOMEPAGE;
+					tc->state = CONNECTED;
+					break;
 			}
 			if (strcmp(ans_client,"1") == 0)
 				tc->lec_on = 1;
@@ -252,7 +291,7 @@ void *sendClient(void *arg)
 
 int main(int argc, char *argv[])
 {
-	//chargeement de la base de données
+	//chargeement	 de la base de données
 	//On initialise la tête
 	data_users.tete_users = (DataUtilisateur*) malloc(sizeof(DataUtilisateur));
 	initDataUtilisateur(data_users.tete_users);
@@ -263,8 +302,6 @@ int main(int argc, char *argv[])
 	loadDataFromFile(&data_users);
 	//On affiche toutes les données
 	printData(data_users.tete_users);
-	addAbonnementByPseudo(&data_users ,data_users.tete_users->suiv, "Lucas");
-	addNewPublication(data_users.tete_users, 1, "Publication nouvelle gen");
 	printData(data_users.tete_users);
 	//Création du thread de sauvegarde
 	if (pthread_create(&data_users.info.id_thread_save, NULL, autoSave, &data_users) != 0) 
