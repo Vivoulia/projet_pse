@@ -10,7 +10,7 @@
 
 enum states {NOT_JOINED,NOT_CONNECTED,TRY_CONNECTION, CONNECTION_REQUEST, REGISTER_REQUEST, CONNECTION_REQUEST_PSEUDO, REGISTER_REQUEST_PSEUDO, CONNECTION_REQUEST_MDP, REGISTER_REQUEST_MDP, CHECK_CONNECTION, CHECK_REGISTER, CONNECTED, WAIT_FOR_COMMAND, PUBLISHING};
 
-enum events {LEAVING_SERV, JOINING_SERV, SEND_CONNECTION_DEMAND, SEND_REGISTER_DEMAND, SEND_PSEUDO_REQUEST, SEND_MDP_REQUEST, SEND_CONNECTION_FAILED, SEND_CONNECTION_SUCCESS, SEND_HOMEPAGE, PUBLISH,SEND_PUBLICATION, VIEW_PUBLI, VIEW_STAT, LIKE, FOLLOW, UNFOLLOW, SHOW_NEWS, DISCONNECT};
+enum events {LEAVING_SERV, JOINING_SERV, SEND_CONNECTION_DEMAND, SEND_REGISTER_DEMAND, SEND_PSEUDO_REQUEST, SEND_MDP_REQUEST, SEND_CONNECTION_FAILED, SEND_CONNECTION_SUCCESS, SEND_HOMEPAGE, PUBLISH,SEND_PUBLICATION, VIEW_PUBLI, VIEW_STAT, SHOW_NEWS, LIKE, FOLLOW, UNFOLLOW, DISCONNECT};
 
 typedef struct {
 	pthread_t Rid;
@@ -39,6 +39,7 @@ void *receiveClient(void *arg)
 {
 	Thread_Data *tc = (Thread_Data*) arg;
 	char buf[BUF_SIZE];
+	char *x;
 	char command[BUF_SIZE];
 	char publi[BUFFER_PUBLI];
 	int nbRead;
@@ -131,6 +132,10 @@ void *receiveClient(void *arg)
 					tc->event = SEND_HOMEPAGE;
 					break;
 				case (WAIT_FOR_COMMAND) :
+					x =strtok(buf," ");
+					if (x == NULL)
+						break;
+					strcpy(command,x);
 					if (strcmp(buf,"/publish") == 0 || strcmp(buf,"/p") == 0)
 					{
 						tc->event = PUBLISH;
@@ -139,21 +144,25 @@ void *receiveClient(void *arg)
 					{
 						tc->event = VIEW_STAT;
 					}
-					else if (strcmp(command,"/follow") == 0 )
+					else if (strcmp(command,"/follow") == 0 || strcmp(command,"/f") == 0)
 					{
-						strcpy(command,strtok(buf," "));
-						strcpy(psdo,strtok(NULL," "));
-						addAbonnementByPseudo(&data_users ,tc->user, psdo);
+						x = strtok(NULL," ");
+						if (x == NULL)
+							break;
+						strcpy(psdo,x);
+						addAbonnementByPseudo(&data_users ,tc->user, psdo );
+						printData(data_users.tete_users);
 						tc->event = FOLLOW;
-						strcpy(command,"nothing");
 					}
-					else if (strcmp(command,"/unfollow") == 0)
+					else if (strcmp(command,"/unfollow") == 0 || strcmp(command,"/u") == 0)
 					{
-						strcpy(command,strtok(buf," "));
-						strcpy(psdo,strtok(NULL," "));
+						x = strtok(NULL," ");
+						if (x == NULL)
+							break;
+						strcpy(psdo,x);
 						deleteAbonnementByPseudo(&data_users ,tc->user, psdo);
+						printData(data_users.tete_users);
 						tc->event = UNFOLLOW;
-						strcpy(command,"nothing");
 					}
 					else if (strcmp(buf, "/disconnect") == 0 || strcmp(buf,"/d") == 0)
 					{
@@ -164,11 +173,14 @@ void *receiveClient(void *arg)
 					 	tc->event = SHOW_NEWS;
 					}
 					break;
+					break;
 				case (PUBLISHING) :
 					strcpy(publi,buf);
+					strcat(publi,"\n");
 					addNewPublication(data_users.tete_users, tc->user->utilisateur->id,publi);
 					tc->event = SEND_PUBLICATION;
 					break;
+				
 			}
 			sem_post(&tc->sem_w);
 			sem_wait(&tc->sem_r);
@@ -387,6 +399,7 @@ int main(int argc, char *argv[])
 	if (pthread_create(&data_users.info.id_thread_save, NULL, autoSave, &data_users) != 0) 
 		erreur_IO("creation of saving thread");
 	//debug et test
+
 	int id_last_user = getLastUserId(&data_users);
 	printf("%d", id_last_user);
 	short port;

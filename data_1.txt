@@ -1,21 +1,19 @@
 2
 0 User0 eleves
-1 Vivien coucou
+1 Otello Test
 0
 2
 Ceci est une pubication
-13 6 119 11 17 9
+13 5 119 10 30 12
 Ceci en est une autre
-13 6 119 11 17 20
+13 5 119 11 17 10
 0
-5
 1
 1
 1
 1
-1
-1
-0
+Salut à tous
+13 5 119 17 10 24
 1
 0
 0
