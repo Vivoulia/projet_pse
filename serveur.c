@@ -35,6 +35,7 @@ int ecoute, ret;
 
 DataUtilisateurTete data_users;
 
+
 void *receiveClient(void *arg)
 {
 	Thread_Data *tc = (Thread_Data*) arg;
@@ -192,6 +193,7 @@ void *sendClient(void *arg)
 {
 	Thread_Data *tc = (Thread_Data*) arg;
 	char buf[BUF_SIZE];
+	char buf2[BUF_SIZE];
 	char ans_client[BUF_SIZE];
 	int nbRead;
 	int continu =1;
@@ -309,7 +311,6 @@ void *sendClient(void *arg)
 				case (SHOW_NEWS) :
 					strcpy(ans_client,"0");
 					UtilisateurChaine* abonnement = tc->user->abonnements;
-					DataUtilisateur* current_abonnement;
 					if(abonnement == NULL)
 					{
 						strcpy(buf,"Aucun news a afficher");
@@ -317,44 +318,80 @@ void *sendClient(void *arg)
 					}
 					else
 					{
-						//On parcours les abonnements
-						while(abonnement != NULL)
+						int nb_publi_affiche = 0;
+						int stop = 0;
+						int* tab_abo =(int*) malloc(tc->user->nb_abonnement*sizeof(int));
+						for (int i = 0; i<tc->user->nb_abonnement; i++)
 						{
-							//Pour chaque abonnement on parcours les publications et on cherche les plus recentes
-							strcpy(buf,"Affichage des news");
-							printf("Nombre de publication de %s: %d\n", abonnement->data_user->utilisateur->pseudo, abonnement->data_user->nb_publication);
-							Publication* current_publi = abonnement->data_user->publication;
-							if (current_publi != NULL)
+							tab_abo[i] = 0;
+						}
+						while(nb_publi_affiche < 10 && stop == 0)
+						{
+							Publication* recent_publi = NULL;
+							UtilisateurChaine* recent_abonnement = NULL;
+							UtilisateurChaine* current_abonnement = tc->user->abonnements;
+							int i_recent_abonnement = 0;
+							int i_current_abonnement = 0;
+							while(current_abonnement != NULL)
 							{
-								while(current_publi != NULL)
+								if (tab_abo[i_current_abonnement] != -1)
 								{
-									strcpy(buf,"#############");
-									printf("%s\n", buf);
-									ecrireLigne(tc->canal, ans_client);
-									ecrireLigne(tc->canal, buf);
-									
-									strcpy(buf, "Publication de: ");
-									strcat(buf, abonnement->data_user->utilisateur->pseudo);
-									printf("%s\n", buf);
-									ecrireLigne(tc->canal, ans_client);
-									ecrireLigne(tc->canal, buf);
-									
-									strcpy(buf, "	");
-									strcat(buf, current_publi->texte);
-									printf("%s\n", buf);
-									ecrireLigne(tc->canal, ans_client);
-									ecrireLigne(tc->canal, buf);
-									
-									current_publi = current_publi->suiv;
-									sleep(1);
+									Publication* current_publi = current_abonnement->data_user->publication;
+									for(int i = 0; i<tab_abo[i_current_abonnement]; i++)
+									{
+										if(current_publi == NULL)
+										{
+											tab_abo[i_current_abonnement] = -1;
+										}
+										else
+										{
+											current_publi = current_publi->suiv;
+										}
+									}
+									if(current_publi != NULL)
+									{
+										if(recent_publi == NULL || isMoreRecent(current_publi, recent_publi) == 1)
+										{
+											recent_publi = current_publi;
+											recent_abonnement = current_abonnement;
+											i_recent_abonnement = i_current_abonnement;
+										}
+									}
 								}
+								current_abonnement = current_abonnement->suiv;
+								i_current_abonnement++;
+							}
+							if(recent_publi == NULL)
+							{
+								stop = 1;
 							}
 							else
 							{
+								printf("recent_publi de %s:%s\n", recent_abonnement->data_user->utilisateur->pseudo, recent_publi->texte);
+								strcpy(ans_client,"0");
+								strcpy(buf,"#############");
+								ecrireLigne(tc->canal, ans_client);
+								ecrireLigne(tc->canal, buf);
+								
+								sprintf(buf, "Publication de: %s", recent_abonnement->data_user->utilisateur->pseudo);
+								ecrireLigne(tc->canal, ans_client);
+								ecrireLigne(tc->canal, buf);
+								
+								sprintf(buf, "Le %d/%d/%d a %dh%dmin" ,recent_publi->date->tm_mday, recent_publi->date->tm_mon+1, recent_publi->date->tm_year+1900, 
+																		recent_publi->date->tm_hour, recent_publi->date->tm_min);
+								ecrireLigne(tc->canal, ans_client);
+								ecrireLigne(tc->canal, buf);
+								
+								sprintf(buf, "	%s", recent_publi->texte);
+								ecrireLigne(tc->canal, ans_client);
+								ecrireLigne(tc->canal, buf);
+								
+								nb_publi_affiche++;
+								tab_abo[i_recent_abonnement]++;
+
 							}
-							abonnement = abonnement->suiv;
-							
 						}
+						free(tab_abo);
 					}
 					strcpy(buf,"#############");
 					strcpy(ans_client,"1");

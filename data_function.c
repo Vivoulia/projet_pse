@@ -39,6 +39,75 @@ DataUtilisateur* findUserByPseudo(DataUtilisateur* users, char pseudo[])
 	return NULL;
 }
 
+int isMoreRecent(Publication* p1, Publication* p2)
+{
+	/*Renvoie 1 si p1 est plus recente que p2 0 sinon*/
+	if (p1->date->tm_year > p2->date->tm_year)
+	{
+		return 1;
+	}
+	else if(p1->date->tm_year == p2->date->tm_year)
+	{
+		if (p1->date->tm_mon > p2->date->tm_mon)
+		{
+			return 1;
+		}
+		else if(p1->date->tm_mon == p2->date->tm_mon)
+		{
+			if (p1->date->tm_mday > p2->date->tm_mday)
+			{
+				return 1;
+			}
+			else if(p1->date->tm_mday == p2->date->tm_mday)
+			{
+				if (p1->date->tm_hour > p2->date->tm_hour)
+				{
+					return 1;
+				}
+				else if(p1->date->tm_hour == p2->date->tm_hour)
+				{
+					if (p1->date->tm_min > p2->date->tm_min)
+					{
+						return 1;
+					}
+					else if(p1->date->tm_min == p2->date->tm_min)
+					{
+						if (p1->date->tm_sec > p2->date->tm_sec)
+						{
+							return 1;
+						}
+						else
+						{
+							return 0;
+						}
+					}
+					else
+					{
+						return 0;
+					}
+				}
+				else
+				{
+					return 0;
+				}
+			}
+			else
+			{
+				return 0;
+			}
+		}
+		else
+		{
+			return 0;
+		}
+	}
+	else 
+	{
+		return 0;
+	}
+
+}
+
 void addUtilisateur(DataUtilisateur* users, char pseudo[BUFFER_PSEUDO], char mdp[BUFFER_MDP], DataInfo* info)
 {
 	//On initialise si c'est le premier utilisateurs
@@ -143,13 +212,8 @@ void addNewPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PU
 {
 	DataUtilisateur* current_user = findUserById(users, id_user);
 	//On parcours les publications
-	Publication* current_publi = current_user->publication;
 	Publication* precedent_publi = current_user->publication;
-	while(current_publi != NULL)
-	{
-		precedent_publi = current_publi;
-		current_publi = current_publi->suiv;
-	}
+
 	Publication* new_publi = (Publication*) malloc(sizeof(Publication));
 	strcpy(new_publi->texte, texte);
 	time_t temps;
@@ -159,14 +223,18 @@ void addNewPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PU
 	new_publi->suiv = NULL;
 	if(current_user->publication != NULL)
 	{
-		precedent_publi->suiv = new_publi; 
 		new_publi->id = precedent_publi->id + 1;
 	}
 	else
 	{
-		current_user->publication = new_publi;
 		new_publi->id = 0;
 	}
+	
+	//On place la publication au début de la chaine
+	precedent_publi = current_user->publication;
+	current_user->publication = new_publi;
+	new_publi->suiv = precedent_publi;
+	
 	current_user->nb_publication++;
 }
 

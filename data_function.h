@@ -17,6 +17,7 @@ void *autoSave(void *arg);
 
 DataUtilisateur* findUserById(DataUtilisateur* users, int id_user);
 DataUtilisateur* findUserByPseudo(DataUtilisateur* users, char pseudo[]);
+int isMoreRecent(Publication* p1, Publication* p2);
 void initDataUtilisateur(DataUtilisateur* users);
 
 void addUtilisateur(DataUtilisateur* users, char pseudo[BUFFER_PSEUDO], char mdp[BUFFER_MDP], DataInfo* info);
