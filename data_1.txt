@@ -3,8 +3,8 @@
 0
 2
 Ceci est une pubication
-13 6 119 10 30 12
+13 6 119 11 17 9
 Ceci en est une autre
-13 6 119 11 17 10
+13 6 119 11 17 20
 0
 0

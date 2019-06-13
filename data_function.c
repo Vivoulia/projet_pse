@@ -105,7 +105,7 @@ int deleteUserById(DataUtilisateurTete* data_users, int user_id)
 	return 0;
 }
 
-void addPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PUBLI], struct tm* date)
+void addPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PUBLI], int tm_mday, int tm_mon, int tm_year, int tm_hour, int tm_min, int tm_sec)
 {
 	DataUtilisateur* current_user = findUserById(users, id_user);
 	//On parcours les publications
@@ -118,7 +118,13 @@ void addPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PUBLI
 	}
 	Publication* new_publi = (Publication*) malloc(sizeof(Publication));
 	strcpy(new_publi->texte, texte);
-	new_publi->date = date;
+	new_publi->date =  (struct tm*) malloc(sizeof(struct tm));
+	new_publi->date->tm_mday = tm_mday;
+	new_publi->date->tm_mon = tm_mon;
+	new_publi->date->tm_year  = tm_year;
+	new_publi->date->tm_hour = tm_hour;
+	new_publi->date->tm_min = tm_min;
+	new_publi->date->tm_sec = tm_sec;
 	new_publi->suiv = NULL;
 	if(current_user->publication != NULL)
 	{
@@ -421,6 +427,7 @@ void printData(DataUtilisateur* users)
 	{
 		printf("Utilisateur numéro %d: %s\n", current_datauser->utilisateur->id, current_datauser->utilisateur->pseudo);
 	}
+	printf("Fin affichage utilisateur\n");
 }
 
 void initDataUtilisateur(DataUtilisateur* users)
@@ -470,14 +477,14 @@ void loadDataFromFile(DataUtilisateurTete* data_users)
 			if(nb_publication > 0)
 			{
 				Publication publication;
-				publication.date = (struct tm*) malloc(sizeof(struct tm));
+				int tm_mday, tm_mon, tm_year, tm_hour, tm_min, tm_sec;
 				for(int j = 0; j<nb_publication; j++)
 				{
 					fgets(publication.texte,BUFFER_PUBLI, fichier);
 					fgets(publication.texte,BUFFER_PUBLI, fichier);
-					fscanf(fichier, "%d %d %d %d %d %d", &publication.date->tm_mday, &publication.date->tm_mon, &publication.date->tm_year, &publication.date->tm_hour, &publication.date->tm_min, &publication.date->tm_sec);
+					fscanf(fichier, "%d %d %d %d %d %d", &tm_mday, &tm_mon, &tm_year, &tm_hour, &tm_min, &tm_sec);
 					//fscanf(fichier, "%d %d %d", &publication.date->tm_hour, &publication.date->tm_min, &publication.date->tm_sec);
-					addPublication(data_users->tete_users, id, publication.texte, publication.date);
+					addPublication(data_users->tete_users, id, publication.texte, tm_mday, tm_mon, tm_year, tm_hour, tm_min, tm_sec);
 				}
 			}
 			//Sauvegarde des abonnements
@@ -539,7 +546,7 @@ void saveDataInFile(DataUtilisateur* users, DataInfo* info)
 				Publication* current_publi = current_user->publication;
 				for(int j = 0; j<current_user->nb_publication; j++)
 				{
-					fprintf(fichier, "%s\n", current_publi->texte);
+					fprintf(fichier, "%s", current_publi->texte);
 					fprintf(fichier, "%d %d %d ", current_publi->date->tm_mday, current_publi->date->tm_mon, current_publi->date->tm_year);
 					fprintf(fichier, "%d %d %d\n", current_publi->date->tm_hour, current_publi->date->tm_min, current_publi->date->tm_sec);
 					current_publi = current_publi->suiv;

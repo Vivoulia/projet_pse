@@ -325,11 +325,11 @@ int main(int argc, char *argv[])
 	loadDataFromFile(&data_users);
 	//On affiche toutes les données
 	printData(data_users.tete_users);
+	saveDataInFile(data_users.tete_users, &data_users.info);
 	//Création du thread de sauvegarde
 	if (pthread_create(&data_users.info.id_thread_save, NULL, autoSave, &data_users) != 0) 
 		erreur_IO("creation of saving thread");
 	//debug et test
-
 	int id_last_user = getLastUserId(&data_users);
 	printf("%d", id_last_user);
 	short port;

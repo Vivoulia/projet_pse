@@ -20,7 +20,7 @@ DataUtilisateur* findUserByPseudo(DataUtilisateur* users, char pseudo[]);
 void initDataUtilisateur(DataUtilisateur* users);
 
 void addUtilisateur(DataUtilisateur* users, char pseudo[BUFFER_PSEUDO], char mdp[BUFFER_MDP], DataInfo* info);
-void addPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PUBLI], struct tm* date);
+void addPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PUBLI], int tm_mday, int tm_mon, int tm_year, int tm_hour, int tm_min, int tm_sec);
 void addNewPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PUBLI]);
 void addAbonnement(DataUtilisateur* users, int id_user, int id_abonnement);
 int addAbonnementByPseudo(DataUtilisateurTete* data_users, DataUtilisateur* current_user, char pseud_abonnement[]);
