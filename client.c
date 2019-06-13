@@ -53,7 +53,7 @@ void *sendServer(void *arg)
 		nbWrite = ecrireLigne(tc->canal, buf);
 		if(nbWrite == -1)
 			erreur_IO("ecrireLigne");
-		printf("%s: Commande envoyé au serveur\n", CMD);
+		//printf("%s: Commande envoyé au serveur\n", CMD);
 	}
 	
 

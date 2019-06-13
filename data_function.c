@@ -148,6 +148,7 @@ void addNewPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PU
 	strcpy(new_publi->texte, texte);
 	time_t temps;
 	time(&temps);
+	new_publi->date =  (struct tm*) malloc(sizeof(struct tm));
 	new_publi->date = localtime(&temps);
 	new_publi->suiv = NULL;
 	if(current_user->publication != NULL)
@@ -376,7 +377,7 @@ void printPublicationUser(DataUtilisateur* current_datauser)
 	{
 		printf("	Publication id %d: le: %d/%d/%d ", current_publi->id, current_publi->date->tm_mday, current_publi->date->tm_mon+1, current_publi->date->tm_year+1900);
 		printf("a %dh%dmin%ds\n", current_publi->date->tm_hour, current_publi->date->tm_min, current_publi->date->tm_sec);
-		printf("		'%s'\n", current_publi->texte);
+		printf("		%s\n", current_publi->texte);
 		current_publi = current_publi->suiv;
 	}
 }
@@ -472,9 +473,10 @@ void loadDataFromFile(DataUtilisateurTete* data_users)
 				publication.date = (struct tm*) malloc(sizeof(struct tm));
 				for(int j = 0; j<nb_publication; j++)
 				{
-					fscanf(fichier, "%s", publication.texte);
-					fprintf(fichier, "%d %d %d ", publication.date->tm_mday, publication.date->tm_mon, publication.date->tm_year);
-					fprintf(fichier, "%d %d %d\n", publication.date->tm_hour, publication.date->tm_min, publication.date->tm_sec);
+					fgets(publication.texte,BUFFER_PUBLI, fichier);
+					fgets(publication.texte,BUFFER_PUBLI, fichier);
+					fscanf(fichier, "%d %d %d %d %d %d", &publication.date->tm_mday, &publication.date->tm_mon, &publication.date->tm_year, &publication.date->tm_hour, &publication.date->tm_min, &publication.date->tm_sec);
+					//fscanf(fichier, "%d %d %d", &publication.date->tm_hour, &publication.date->tm_min, &publication.date->tm_sec);
 					addPublication(data_users->tete_users, id, publication.texte, publication.date);
 				}
 			}

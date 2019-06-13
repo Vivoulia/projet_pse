@@ -10,7 +10,7 @@
 
 enum states {NOT_JOINED,NOT_CONNECTED,TRY_CONNECTION, CONNECTION_REQUEST, REGISTER_REQUEST, CONNECTION_REQUEST_PSEUDO, REGISTER_REQUEST_PSEUDO, CONNECTION_REQUEST_MDP, REGISTER_REQUEST_MDP, CHECK_CONNECTION, CHECK_REGISTER, CONNECTED, WAIT_FOR_COMMAND, PUBLISHING};
 
-enum events {LEAVING_SERV, JOINING_SERV, SEND_CONNECTION_DEMAND, SEND_REGISTER_DEMAND, SEND_PSEUDO_REQUEST, SEND_MDP_REQUEST, SEND_CONNECTION_FAILED, SEND_CONNECTION_SUCCESS, SEND_HOMEPAGE, PUBLISH,SEND_PUBLICATION, VIEW_PUBLI, VIEW_STAT, LIKE, FOLLOW, UNFOLLOW};
+enum events {LEAVING_SERV, JOINING_SERV, SEND_CONNECTION_DEMAND, SEND_REGISTER_DEMAND, SEND_PSEUDO_REQUEST, SEND_MDP_REQUEST, SEND_CONNECTION_FAILED, SEND_CONNECTION_SUCCESS, SEND_HOMEPAGE, PUBLISH,SEND_PUBLICATION, VIEW_PUBLI, VIEW_STAT, LIKE, FOLLOW, UNFOLLOW, DISCONNECT};
 
 typedef struct {
 	pthread_t Rid;
@@ -39,7 +39,7 @@ void *receiveClient(void *arg)
 {
 	Thread_Data *tc = (Thread_Data*) arg;
 	char buf[BUF_SIZE];
-	char follow[7];
+	char command[BUF_SIZE];
 	char publi[BUFFER_PUBLI];
 	int nbRead;
 	int try_mdp = 5;
@@ -61,7 +61,6 @@ void *receiveClient(void *arg)
 				if (strcmp(buf,"fin") == 0)	//Vérification à chaque entrée si l'utilisateur veut quitter
 				{
 					tc->event = LEAVING_SERV;
-					sem_post(&tc->sem_w);
 					break;
 				}
 			}
@@ -132,7 +131,6 @@ void *receiveClient(void *arg)
 					tc->event = SEND_HOMEPAGE;
 					break;
 				case (WAIT_FOR_COMMAND) :
-					strncpy(follow,buf,7); 
 					if (strcmp(buf,"/publish") == 0 || strcmp(buf,"/p") == 0)
 					{
 						tc->event = PUBLISH;
@@ -141,12 +139,25 @@ void *receiveClient(void *arg)
 					{
 						tc->event = VIEW_STAT;
 					}
-					else if (strcmp(follow,"/follow") == 0 )
+					else if (strcmp(command,"/follow") == 0 )
 					{
-						strtok(buf," ");
-						addAbonnementByPseudo(&data_users ,data_users.tete_users->suiv, strtok(NULL," "));
+						strcpy(command,strtok(buf," "));
+						strcpy(psdo,strtok(NULL," "));
+						addAbonnementByPseudo(&data_users ,tc->user, psdo );
 						tc->event = FOLLOW;
-						strcpy(follow,"nothin");
+						strcpy(command,"nothing");
+					}
+					else if (strcmp(command,"/unfollow") == 0)
+					{
+						strcpy(command,strtok(buf," "));
+						strcpy(psdo,strtok(NULL," "));
+						deleteAbonnementByPseudo(&data_users ,tc->user, psdo);
+						tc->event = UNFOLLOW;
+						strcpy(command,"nothing");
+					}
+					else if (strcmp(buf, "/disconnect") == 0 || strcmp(buf,"/d") == 0)
+					{
+						tc->event = DISCONNECT;
 					}
 					break;
 				case (PUBLISHING) :
@@ -273,6 +284,18 @@ void *sendClient(void *arg)
 					tc->event = SEND_HOMEPAGE;
 					tc->state = CONNECTED;
 					break;
+				case (UNFOLLOW) :
+					strcpy(ans_client,"0");
+					strcpy(buf,"Désabonnement réussi");
+					tc->event = SEND_HOMEPAGE;
+					tc->state = CONNECTED;
+					break;
+				case (DISCONNECT) :
+					strcpy(ans_client,"0");
+					strcpy(buf,"Deconnexion");
+					tc->state = NOT_CONNECTED;
+					tc->user = NULL;
+					break;
 			}
 			if (strcmp(ans_client,"1") == 0)
 				tc->lec_on = 1;
@@ -302,11 +325,11 @@ int main(int argc, char *argv[])
 	loadDataFromFile(&data_users);
 	//On affiche toutes les données
 	printData(data_users.tete_users);
-	printData(data_users.tete_users);
 	//Création du thread de sauvegarde
 	if (pthread_create(&data_users.info.id_thread_save, NULL, autoSave, &data_users) != 0) 
 		erreur_IO("creation of saving thread");
 	//debug et test
+
 	int id_last_user = getLastUserId(&data_users);
 	printf("%d", id_last_user);
 	short port;
