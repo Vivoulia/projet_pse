@@ -32,6 +32,7 @@ sem_t sem_;
 
 unsigned int lgAdrClient;
 int ecoute, ret;
+int continu = 1;
 
 DataUtilisateurTete data_users;
 
@@ -46,7 +47,6 @@ void *receiveClient(void *arg)
 	int nbRead;
 	int try_mdp = 5;
 	char psdo[BUFFER_PSEUDO];
-	int continu = 1;
 	while (continu )
 	{
 		sem_wait(&tc->sem_r);
@@ -196,7 +196,6 @@ void *sendClient(void *arg)
 	char buf2[BUF_SIZE];
 	char ans_client[BUF_SIZE];
 	int nbRead;
-	int continu =1;
 	while (continu)
 	{
 		sem_wait(&tc->sem_w);
@@ -417,7 +416,34 @@ void *sendClient(void *arg)
 	}
 }
 
-
+void *commandeServeur(void *arg)
+{
+	while (continu)
+	{
+		int libre = -1;
+		int trouve = 0;
+		int i = 0;
+		sem_wait(&sem_);
+		while (trouve == 0)
+		{
+			if ( thread_data[i].canal == -1)
+			{
+				libre = i;
+				trouve = 1;
+			}
+			i++;
+		}
+		thread_data[libre].canal = accept(ecoute, (struct sockaddr *) &adrClient, &lgAdrClient);
+		if (thread_data[libre].canal < 0)
+			erreur_IO("accept");
+		
+		printf("%s : Connexion sur le socket depuis le thread %d\n", CMD, libre);
+		printf("%s : Adresse %s, port %hu\n", CMD, stringIP(ntohl(adrClient.sin_addr.s_addr)), ntohs(adrClient.sin_port));
+		thread_data[libre].state = NOT_CONNECTED;
+		sem_post(&thread_data[libre].sem_w);
+		printf("Lancement de la discussion client/serveur\n");
+	}
+}
 
 int main(int argc, char *argv[])
 {
@@ -440,6 +466,9 @@ int main(int argc, char *argv[])
 	int id_last_user = getLastUserId(&data_users);
 	printf("%d", id_last_user);
 	short port;
+	
+	pthread_t id_commandeServeur;
+	int serveur_ouvert = 1;
 	
 	if (argc != 2)
 		erreur("Mauvaise syntaxe : %s port\n", argv[0]);
@@ -481,32 +510,44 @@ int main(int argc, char *argv[])
     ret = listen(ecoute, 5);
 	if (ret < 0)
 		erreur_IO("ecoute");
-	
-	while (1)
-	{
-		int libre = -1;
-		int trouve = 0;
-		int i = 0;
-		sem_wait(&sem_);
-		while (trouve == 0)
-		{
-			if ( thread_data[i].canal == -1)
-			{
-				libre = i;
-				trouve = 1;
-			}
-			i++;
-		}
-		thread_data[libre].canal = accept(ecoute, (struct sockaddr *) &adrClient, &lgAdrClient);
-		if (thread_data[libre].canal < 0)
-			erreur_IO("accept");
 		
-		printf("%s : Connexion sur le socket depuis le thread %d\n", CMD, libre);
-		printf("%s : Adresse %s, port %hu\n", CMD, stringIP(ntohl(adrClient.sin_addr.s_addr)), ntohs(adrClient.sin_port));
-		thread_data[libre].state = NOT_CONNECTED;
-		sem_post(&thread_data[libre].sem_w);
-		printf("Lancement de la discussion client/serveur\n");
+	if (pthread_create(&id_commandeServeur, NULL, commandeServeur, &serveur_ouvert) != 0)
+			erreur_IO("creation of the commandServeur Thread");
+			
+
+	char buf[BUF_SIZE];
+	static int codeRetour = 0;
+	printf("Les logs sont enregistrés dans log.txt\n");
+	printf("/shutdown pour fermer le serveur\n");
+	printf("/save pour sauvegarder\n");
+	printf("/data pour afficher les données\n");
+	while(continu)
+	{
+		printf(">");
+		if(fgets(buf, LIGNE_MAX, stdin) == NULL)
+			erreur("fegts null\n");
+		if(strcmp(buf, "/shutdown\n") == 0)
+		{
+			saveDataInFile(data_users.tete_users, &data_users.info);
+			printf("Fermeture du serveur ...\n");
+			continu = 0;
+		}
+		else if (strcmp(buf, "/save\n") == 0)
+		{
+			saveDataInFile(data_users.tete_users, &data_users.info);
+		}
+		else if (strcmp(buf, "/data\n") == 0)
+		{
+			printData(data_users.tete_users);
+		}
+		else
+		{
+			printf("Commande inconnue, essayer /shutdown ou /save\n");
+		}
+		
 	}
+			
+
 	exit(EXIT_SUCCESS);
 }
 

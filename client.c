@@ -14,13 +14,15 @@ typedef struct Thread {
 } Thread_Data;
 
 
+int secu_fin = 0;
+
 void *listenServer(void *arg)
 {
 	Thread_Data *tc = (Thread_Data*) arg;
 	char buf[BUF_SIZE];
 	char ans_client[BUF_SIZE];
 	int nbRead = 0;
-	while(1)
+	while(secu_fin<20)
 	{
 		nbRead = lireLigne(tc->canal,ans_client);
 		if(nbRead == -1)
@@ -32,6 +34,7 @@ void *listenServer(void *arg)
 		//On a reçu un message on laisse le client répondre
 		if (strcmp(ans_client,"1")==0)
 			sem_post(&tc->sem_w);
+		secu_fin++;
 	}
 	
 	exit(EXIT_SUCCESS);
@@ -44,7 +47,7 @@ void *sendServer(void *arg)
 	int nbWrite = 0;
 	//Discussion entre le client et le serveur
 	
-	while(strcmp(buf, "fin\n") != 0)
+	while(strcmp(buf, "fin\n") != 0 && secu_fin < 20)
 	{
 		sem_wait(&tc->sem_w);
 		printf(">");
@@ -53,7 +56,7 @@ void *sendServer(void *arg)
 		nbWrite = ecrireLigne(tc->canal, buf);
 		if(nbWrite == -1)
 			erreur_IO("ecrireLigne");
-		//printf("%s: Commande envoyé au serveur\n", CMD);
+		secu_fin = 0;
 	}
 	
 
