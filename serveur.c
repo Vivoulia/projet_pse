@@ -10,7 +10,7 @@
 
 enum states {NOT_JOINED,NOT_CONNECTED,TRY_CONNECTION, CONNECTION_REQUEST, REGISTER_REQUEST, CONNECTION_REQUEST_PSEUDO, REGISTER_REQUEST_PSEUDO, CONNECTION_REQUEST_MDP, REGISTER_REQUEST_MDP, CHECK_CONNECTION, CHECK_REGISTER, CONNECTED, WAIT_FOR_COMMAND, PUBLISHING};
 
-enum events {LEAVING_SERV, JOINING_SERV, SEND_CONNECTION_DEMAND, SEND_REGISTER_DEMAND, SEND_PSEUDO_REQUEST, SEND_MDP_REQUEST, SEND_CONNECTION_FAILED, SEND_CONNECTION_SUCCESS, SEND_HOMEPAGE, PUBLISH,SEND_PUBLICATION, VIEW_PUBLI, VIEW_STAT, LIKE, FOLLOW, UNFOLLOW, DISCONNECT};
+enum events {LEAVING_SERV, JOINING_SERV, SEND_CONNECTION_DEMAND, SEND_REGISTER_DEMAND, SEND_PSEUDO_REQUEST, SEND_MDP_REQUEST, SEND_CONNECTION_FAILED, SEND_CONNECTION_SUCCESS, SEND_HOMEPAGE, PUBLISH,SEND_PUBLICATION, VIEW_PUBLI, VIEW_STAT, LIKE, FOLLOW, UNFOLLOW, SHOW_NEWS, DISCONNECT};
 
 typedef struct {
 	pthread_t Rid;
@@ -143,7 +143,7 @@ void *receiveClient(void *arg)
 					{
 						strcpy(command,strtok(buf," "));
 						strcpy(psdo,strtok(NULL," "));
-						addAbonnementByPseudo(&data_users ,tc->user, psdo );
+						addAbonnementByPseudo(&data_users ,tc->user, psdo);
 						tc->event = FOLLOW;
 						strcpy(command,"nothing");
 					}
@@ -158,6 +158,10 @@ void *receiveClient(void *arg)
 					else if (strcmp(buf, "/disconnect") == 0 || strcmp(buf,"/d") == 0)
 					{
 						tc->event = DISCONNECT;
+					}
+					else if (strcmp(buf, "/news") == 0 || strcmp(buf,"/n") == 0)
+					{
+					 	tc->event = SHOW_NEWS;
 					}
 					break;
 				case (PUBLISHING) :
@@ -290,6 +294,60 @@ void *sendClient(void *arg)
 					tc->event = SEND_HOMEPAGE;
 					tc->state = CONNECTED;
 					break;
+				case (SHOW_NEWS) :
+					strcpy(ans_client,"0");
+					UtilisateurChaine* abonnement = tc->user->abonnements;
+					DataUtilisateur* current_abonnement;
+					if(abonnement == NULL)
+					{
+						strcpy(buf,"Aucun news a afficher");
+						//Aucun news (pas d'abonnements)
+					}
+					else
+					{
+						//On parcours les abonnements
+						while(abonnement != NULL)
+						{
+							//Pour chaque abonnement on parcours les publications et on cherche les plus recentes
+							strcpy(buf,"Affichage des news");
+							printf("Nombre de publication de %s: %d\n", abonnement->data_user->utilisateur->pseudo, abonnement->data_user->nb_publication);
+							Publication* current_publi = abonnement->data_user->publication;
+							if (current_publi != NULL)
+							{
+								while(current_publi != NULL)
+								{
+									strcpy(buf,"#############");
+									printf("%s\n", buf);
+									ecrireLigne(tc->canal, ans_client);
+									ecrireLigne(tc->canal, buf);
+									
+									strcpy(buf, "Publication de: ");
+									strcat(buf, abonnement->data_user->utilisateur->pseudo);
+									printf("%s\n", buf);
+									ecrireLigne(tc->canal, ans_client);
+									ecrireLigne(tc->canal, buf);
+									
+									strcpy(buf, "	");
+									strcat(buf, current_publi->texte);
+									printf("%s\n", buf);
+									ecrireLigne(tc->canal, ans_client);
+									ecrireLigne(tc->canal, buf);
+									
+									current_publi = current_publi->suiv;
+									sleep(1);
+								}
+							}
+							else
+							{
+							}
+							abonnement = abonnement->suiv;
+							
+						}
+					}
+					strcpy(buf,"#############");
+					strcpy(ans_client,"1");
+					tc->state = WAIT_FOR_COMMAND;
+				break;
 				case (DISCONNECT) :
 					strcpy(ans_client,"0");
 					strcpy(buf,"Deconnexion");
@@ -325,7 +383,6 @@ int main(int argc, char *argv[])
 	loadDataFromFile(&data_users);
 	//On affiche toutes les données
 	printData(data_users.tete_users);
-	saveDataInFile(data_users.tete_users, &data_users.info);
 	//Création du thread de sauvegarde
 	if (pthread_create(&data_users.info.id_thread_save, NULL, autoSave, &data_users) != 0) 
 		erreur_IO("creation of saving thread");

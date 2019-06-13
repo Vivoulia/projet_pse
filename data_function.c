@@ -221,7 +221,7 @@ int deleteAbonnementByPseudo(DataUtilisateurTete* data_users, DataUtilisateur* c
 		printf("L'utilisateur n'a aucune abonnement a supprimer\n");
 		return 1;
 	}
-	else if (strcmp(current_abo->utilisateur->pseudo,user_abonnement_pseudo) == 0)
+	else if (strcmp(current_abo->data_user->utilisateur->pseudo,user_abonnement_pseudo) == 0)
 	{
 		//Si l'abonnement est le premier
 		current_user->abonnements = current_user->abonnements->suiv;
@@ -231,7 +231,7 @@ int deleteAbonnementByPseudo(DataUtilisateurTete* data_users, DataUtilisateur* c
 	else
 	{
 		//Sinon on parcours les abonnements
-	 	while(strcmp(current_abo->utilisateur->pseudo,user_abonnement_pseudo) == 0)
+	 	while(strcmp(current_abo->data_user->utilisateur->pseudo,user_abonnement_pseudo) == 0)
 		{	
 			precedent_abo = current_abo;
 			current_abo = current_abo->suiv;
@@ -264,7 +264,7 @@ int deleteAbonneByPseudo(DataUtilisateurTete* data_users, DataUtilisateur* curre
 		printf("L'utilisateur n'a aucune abonnement a supprimer\n");
 		return 1;
 	}
-	else if (strcmp(current_abo->utilisateur->pseudo,user_abonnement_pseudo) == 0)
+	else if (strcmp(current_abo->data_user->utilisateur->pseudo,user_abonnement_pseudo) == 0)
 	{
 		//Si l'abonnement est le premier
 		current_user->abonnes = current_user->abonnes->suiv;
@@ -274,7 +274,7 @@ int deleteAbonneByPseudo(DataUtilisateurTete* data_users, DataUtilisateur* curre
 	else
 	{
 		//Sinon on parcours les abonnements
-	 	while(strcmp(current_abo->utilisateur->pseudo,user_abonnement_pseudo) == 0)
+	 	while(strcmp(current_abo->data_user->utilisateur->pseudo,user_abonnement_pseudo) == 0)
 		{	
 			precedent_abo = current_abo;
 			current_abo = current_abo->suiv;
@@ -304,7 +304,7 @@ void addAbonnement(DataUtilisateur* users, int id_user, int id_abonnement)
 		current_user_abonnement = current_user_abonnement->suiv;
 	}
 	UtilisateurChaine* new_user_chaine = (UtilisateurChaine*) malloc(sizeof(UtilisateurChaine));
-	new_user_chaine->utilisateur = user_abonnement->utilisateur;
+	new_user_chaine->data_user = user_abonnement;
 	new_user_chaine->suiv = NULL;
 	if(current_user->abonnements != NULL)
 	{
@@ -335,7 +335,7 @@ int addAbonnementByPseudo(DataUtilisateurTete* data_users, DataUtilisateur* curr
 		current_user_abonnement = current_user_abonnement->suiv;
 	}
 	UtilisateurChaine* new_user_chaine = (UtilisateurChaine*) malloc(sizeof(UtilisateurChaine));
-	new_user_chaine->utilisateur = user_abonnement->utilisateur;
+	new_user_chaine->data_user = user_abonnement;
 	new_user_chaine->suiv = NULL;
 	if(current_user->abonnements != NULL)
 	{
@@ -363,7 +363,7 @@ void addAbonne(DataUtilisateur* users, int id_user, int id_abonnee)
 		current_user_abonnee = current_user_abonnee->suiv;
 	}
 	UtilisateurChaine* new_user_chaine = (UtilisateurChaine*) malloc(sizeof(UtilisateurChaine));
-	new_user_chaine->utilisateur = user_abonnee->utilisateur;
+	new_user_chaine->data_user = user_abonnee;
 	new_user_chaine->suiv = NULL;
 	if(current_user->abonnes != NULL)
 	{
@@ -393,7 +393,7 @@ void printAbonnementsUser(DataUtilisateur* current_datauser)
 	UtilisateurChaine* current_abo = current_datauser->abonnements;
 	while(current_abo != NULL)
 	{
-		printf("	Abonnements: %s\n", current_abo->utilisateur->pseudo);
+		printf("	Abonnements: %s\n", current_abo->data_user->utilisateur->pseudo);
 		current_abo = current_abo->suiv;
 	}
 }
@@ -403,7 +403,7 @@ void printabonnesUser(DataUtilisateur* current_datauser)
 	UtilisateurChaine* current_abo = current_datauser->abonnes;
 	while(current_abo != NULL)
 	{
-		printf("	Abonnes: %s\n", current_abo->utilisateur->pseudo);
+		printf("	Abonnes: %s\n", current_abo->data_user->utilisateur->pseudo);
 		current_abo = current_abo->suiv;
 	}
 }
@@ -483,11 +483,10 @@ void loadDataFromFile(DataUtilisateurTete* data_users)
 					fgets(publication.texte,BUFFER_PUBLI, fichier);
 					fgets(publication.texte,BUFFER_PUBLI, fichier);
 					fscanf(fichier, "%d %d %d %d %d %d", &tm_mday, &tm_mon, &tm_year, &tm_hour, &tm_min, &tm_sec);
-					//fscanf(fichier, "%d %d %d", &publication.date->tm_hour, &publication.date->tm_min, &publication.date->tm_sec);
 					addPublication(data_users->tete_users, id, publication.texte, tm_mday, tm_mon, tm_year, tm_hour, tm_min, tm_sec);
 				}
 			}
-			//Sauvegarde des abonnements
+			//Chargement des abonnements
 			int nb_abonnement = 0;
 			fscanf(fichier, "%d", &nb_abonnement);
 			if(nb_abonnement > 0)
@@ -499,7 +498,7 @@ void loadDataFromFile(DataUtilisateurTete* data_users)
 					addAbonnement(data_users->tete_users, id, id_abonnement);
 				}
 			}
-			//Sauvegarde des abonnes
+			//Chargement des abonnes
 			int nb_abonne = 0;
 			fscanf(fichier, "%d", &nb_abonne);
 			if(nb_abonne > 0)
@@ -508,7 +507,7 @@ void loadDataFromFile(DataUtilisateurTete* data_users)
 				for(int j = 0; j<nb_abonne; j++)
 				{
 					fscanf(fichier, "%d", &id_abonne);
-					addAbonne(data_users->tete_users, id, id_abonne);
+					//addAbonne(data_users->tete_users, id, id_abonne);
 				}
 			}
 		}
@@ -559,7 +558,7 @@ void saveDataInFile(DataUtilisateur* users, DataInfo* info)
 				UtilisateurChaine* current_abo = current_user->abonnements;
 				for(int j = 0; j<current_user->nb_abonnement; j++)
 				{
-					fprintf(fichier, "%d\n", current_abo->utilisateur->id);
+					fprintf(fichier, "%d\n", current_abo->data_user->utilisateur->id);
 					current_abo = current_abo->suiv;
 				}
 			}
@@ -570,7 +569,7 @@ void saveDataInFile(DataUtilisateur* users, DataInfo* info)
 				UtilisateurChaine* current_abo = current_user->abonnes;
 				for(int j = 0; j<current_user->nb_abonne; j++)
 				{
-					fprintf(fichier, "%d\n", current_abo->utilisateur->id);
+					fprintf(fichier, "%d\n", current_abo->data_user->utilisateur->id);
 					current_abo = current_abo->suiv;
 				}
 			}

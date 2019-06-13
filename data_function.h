@@ -69,7 +69,7 @@ struct Utilisateur
 
 struct UtilisateurChaine
 {
-	Utilisateur* utilisateur;
+	DataUtilisateur* data_user;
 	UtilisateurChaine* suiv;
 };
 
