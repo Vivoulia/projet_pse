@@ -26,6 +26,7 @@ void addNewPublication(DataUtilisateur* users, int id_user, char texte[BUFFER_PU
 void addAbonnement(DataUtilisateur* users, int id_user, int id_abonnement);
 int addAbonnementByPseudo(DataUtilisateurTete* data_users, DataUtilisateur* current_user, char pseud_abonnement[]);
 void addAbonne(DataUtilisateur* users, int id_user, int id_abonnee);
+int AbonneToByPseudo(DataUtilisateurTete* data_users, DataUtilisateur* current_user, DataUtilisateur* user_abonnement);
 
 int deleteUserById(DataUtilisateurTete* data_users, int user_id);
 int deletePublicationById(DataUtilisateur* current_user, int publication_id);

@@ -8,9 +8,9 @@
 
 
 
-enum states {NOT_JOINED,NOT_CONNECTED,TRY_CONNECTION, CONNECTION_REQUEST, REGISTER_REQUEST, CONNECTION_REQUEST_PSEUDO, REGISTER_REQUEST_PSEUDO, CONNECTION_REQUEST_MDP, REGISTER_REQUEST_MDP, CHECK_CONNECTION, CHECK_REGISTER, CONNECTED, WAIT_FOR_COMMAND, PUBLISHING};
+enum states {NOT_JOINED,NOT_CONNECTED,TRY_CONNECTION, CONNECTION_REQUEST, REGISTER_REQUEST, CONNECTION_REQUEST_PSEUDO, REGISTER_REQUEST_PSEUDO, CONNECTION_REQUEST_MDP, REGISTER_REQUEST_MDP, CHECK_CONNECTION, CHECK_REGISTER, CONNECTED, ACCUEIL, WAIT_FOR_COMMAND, PUBLISHING, DELETE_REQUEST, PROFILE};
 
-enum events {LEAVING_SERV, JOINING_SERV, SEND_CONNECTION_DEMAND, SEND_REGISTER_DEMAND, SEND_PSEUDO_REQUEST, SEND_MDP_REQUEST, SEND_CONNECTION_FAILED, SEND_CONNECTION_SUCCESS, SEND_HOMEPAGE, PUBLISH,SEND_PUBLICATION, VIEW_PUBLI, VIEW_STAT, SHOW_NEWS, LIKE, FOLLOW, UNFOLLOW, DISCONNECT};
+enum events {LEAVING_SERV, JOINING_SERV, SEND_CONNECTION_DEMAND, SEND_REGISTER_DEMAND, SEND_PSEUDO_REQUEST, SEND_MDP_REQUEST, SEND_CONNECTION_FAILED, SEND_CONNECTION_SUCCESS, SEND_HOMEPAGE, SEND_ACCUEIL, PUBLISH,SEND_PUBLICATION, VIEW_PUBLI, SHOW_OUR_PROFILE, SHOW_PROFILE, SHOW_NEWS, LIKE, FOLLOW, UNFOLLOW, DELETE_PUBLI, SEND_DELETE, DESAC, HELP, DISCONNECT, ERROR_PSEUDO, ERROR_MDP, ERROR_COMMAND, ERROR_COMMAND2, ERROR_COMMAND3, ERROR_COMMAND4, ERROR_PUBLI, ERROR_FOLLOW, ERROR_FOLLOW2, ERROR_UNFOLLOW};
 
 typedef struct {
 	pthread_t Rid;
@@ -21,6 +21,7 @@ typedef struct {
 	sem_t sem_w;
 	sem_t sem_r;
 	int lec_on;
+	char buffy[BUF_SIZE];
 	enum states state;
 	enum events event;
 	DataUtilisateur* user;
@@ -45,10 +46,12 @@ void *receiveClient(void *arg)
 	char command[BUF_SIZE];
 	char publi[BUFFER_PUBLI];
 	int nbRead;
-	int try_mdp = 5;
+	int try_mdp = 4;
 	char psdo[BUFFER_PSEUDO];
+	int r = 0;
 	while (continu )
 	{
+		try_mdp = 4;
 		sem_wait(&tc->sem_r);
 		printf("On arrive ici\n");
 		while(tc->canal != -1)
@@ -60,7 +63,7 @@ void *receiveClient(void *arg)
 					tc->canal = -1;
 					break;
 				}
-				if (strcmp(buf,"fin") == 0)	//Vérification à chaque entrée si l'utilisateur veut quitter
+				if (strcmp(buf,"/fin") == 0)	//Vérification à chaque entrée si l'utilisateur veut quitter
 				{
 					tc->event = LEAVING_SERV;
 					break;
@@ -94,6 +97,7 @@ void *receiveClient(void *arg)
 					{
 						//Utilisateur introuvable
 						printf("erreur ... %s n'existe pas\n",buf);
+						tc->event = ERROR_PSEUDO;
 					}
 					break;
 				case (REGISTER_REQUEST_PSEUDO) :
@@ -101,6 +105,7 @@ void *receiveClient(void *arg)
 					if(tc->user != NULL)
 					{
 						printf("%s déja pris\n", tc->user->utilisateur->pseudo);
+						tc->event = ERROR_PSEUDO;
 					}
 					else
 					{
@@ -115,8 +120,10 @@ void *receiveClient(void *arg)
 					else 
 					{
 						try_mdp--;
+						printf("%d\n",try_mdp);
 						if (try_mdp < 0)
 							tc->event = SEND_CONNECTION_FAILED;
+						else tc->event = ERROR_MDP;
 					}
 					break;
 				case (REGISTER_REQUEST_MDP) :
@@ -127,31 +134,59 @@ void *receiveClient(void *arg)
 						tc->user = findUserByPseudo(data_users.tete_users, psdo);
 					}
 					else
-						tc->event = SEND_CONNECTION_FAILED;
+						tc->event = ERROR_MDP;
 					break;
 				case (CONNECTED) : 
 					tc->event = SEND_HOMEPAGE;
+					break;
+				case (ACCUEIL) :
+					tc->event = SEND_ACCUEIL;
 					break;
 				case (WAIT_FOR_COMMAND) :
 					x =strtok(buf," ");
 					if (x == NULL)
 						break;
 					strcpy(command,x);
-					if (strcmp(buf,"/publish") == 0 || strcmp(buf,"/p") == 0)
+					if (strcmp(command,"/publish") == 0 || strcmp(command,"/p") == 0)
 					{
 						tc->event = PUBLISH;
 					}
-					else if (strcmp(buf,"/stat") == 0 || strcmp(buf,"/s") == 0)
+					else if (strcmp(command,"/help") == 0 || strcmp(command,"/h") == 0)
 					{
-						tc->event = VIEW_STAT;
+						tc->event = HELP;
+					}
+					else if (strcmp(command,"/profile") == 0 || strcmp(command,"/pr") == 0)
+					{
+						x = strtok(NULL," ");
+						if (x == NULL)
+						{
+							tc->event = SHOW_OUR_PROFILE;
+							break;
+						}
+						strcpy(tc->buffy,x);
+						tc->event = SHOW_PROFILE;
 					}
 					else if (strcmp(command,"/follow") == 0 || strcmp(command,"/f") == 0)
 					{
 						x = strtok(NULL," ");
 						if (x == NULL)
+						{
+							tc->event = ERROR_COMMAND2;
 							break;
+						}
 						strcpy(psdo,x);
-						addAbonnementByPseudo(&data_users ,tc->user, psdo );
+						r = addAbonnementByPseudo(&data_users ,tc->user, psdo );
+						if ( r == 1)
+						{
+							tc->event = ERROR_FOLLOW;
+							break;
+						}
+						else if (r == 2)
+						{
+							tc->event = ERROR_FOLLOW2;
+							break;
+						}
+						strcpy(tc->buffy,psdo);
 						printData(data_users.tete_users);
 						tc->event = FOLLOW;
 					}
@@ -159,33 +194,74 @@ void *receiveClient(void *arg)
 					{
 						x = strtok(NULL," ");
 						if (x == NULL)
+						{
+							tc->event = ERROR_COMMAND3;
 							break;
+						}
 						strcpy(psdo,x);
-						deleteAbonnementByPseudo(&data_users ,tc->user, psdo);
+						r = deleteAbonnementByPseudo(&data_users ,tc->user, psdo);
+						if (r ==1)
+						{
+							tc->event = ERROR_UNFOLLOW;
+							break;
+						}
+						strcpy(tc->buffy,psdo);
 						printData(data_users.tete_users);
 						tc->event = UNFOLLOW;
 					}
-					else if (strcmp(buf, "/disconnect") == 0 || strcmp(buf,"/d") == 0)
+					else if (strcmp(command, "/disconnect") == 0 || strcmp(command,"/d") == 0)
 					{
 						tc->event = DISCONNECT;
 					}
-					else if (strcmp(buf, "/news") == 0 || strcmp(buf,"/n") == 0)
+					else if (strcmp(command, "/delete") == 0 || strcmp(command,"/del") == 0)
+					{
+						x = strtok(NULL," ");
+						if (x == NULL)
+						{
+							tc->event = ERROR_COMMAND4;
+							break;
+						}
+						r = strtol(x,(char**) NULL, 10);
+						Publication* current_pub = tc->user->publication;
+						while (current_pub->id != r)
+							current_pub = current_pub->suiv;
+						strcpy(tc->buffy,current_pub->texte);
+						tc->event = DELETE_PUBLI;
+						break;
+					}
+					else if (strcmp(command, "/news") == 0 || strcmp(command,"/n") == 0)
 					{
 					 	tc->event = SHOW_NEWS;
 					}
-					break;
+					else if ( command[0]== 47) // (= '/')
+					{
+						tc->event = ERROR_COMMAND;
+					}
 					break;
 				case (PUBLISHING) :
+					if (nbRead <= 0)
+						tc->event = ERROR_PUBLI;
 					strcpy(publi,buf);
 					strcat(publi,"\n");
 					addNewPublication(data_users.tete_users, tc->user->utilisateur->id,publi);
+					printData(data_users.tete_users);
 					tc->event = SEND_PUBLICATION;
 					break;
-				
+				case (DELETE_REQUEST) :
+					if (strcmp(buf,"o") == 0)
+					{
+						tc->event = SEND_DELETE;
+						deletePublicationById(tc->user,r);
+						printData(data_users.tete_users);
+					}
+					else if (strcmp(buf,"n") == 0)
+						tc->event = SEND_ACCUEIL;
+					break;
 			}
 			sem_post(&tc->sem_w);
 			sem_wait(&tc->sem_r);
 		}
+		sem_post(&tc->sem_w);
 	}
 }
 
@@ -196,6 +272,9 @@ void *sendClient(void *arg)
 	char buf2[BUF_SIZE];
 	char ans_client[BUF_SIZE];
 	int nbRead;
+	DataUtilisateur *profile_user;
+	Publication *current_publi;
+	UtilisateurChaine* current_abo;
 	while (continu)
 	{
 		sem_wait(&tc->sem_w);
@@ -210,11 +289,12 @@ void *sendClient(void *arg)
 					tc->state = TRY_CONNECTION;
 					break;
 				case (LEAVING_SERV) :
-					close(tc->canal);
-					tc->canal = -1;
+					printf("%s : Deconnexion du socket du thread %d\n",CMD,tc->tid);
 					tc->event = JOINING_SERV;
 					tc->state = NOT_JOINED;
 					tc->user = NULL;
+					close(tc->canal);
+					tc->canal = -1;
 					break;
 				case (SEND_CONNECTION_DEMAND) :
 					strcpy(ans_client,"0");
@@ -276,8 +356,13 @@ void *sendClient(void *arg)
 					tc->user = NULL;
 					break;
 				case (SEND_HOMEPAGE) :
-					strcpy(ans_client,"1");
+					strcpy(ans_client,"0");
 					strcpy(buf,"Bienvenue sur ZETIR ! Le réseau social du futur ! Partagez votre vie privée qui n'interressent personne avec tous vos abonnés !");
+					tc->state = ACCUEIL;
+					break;
+				case (SEND_ACCUEIL) :
+					strcpy(ans_client,"1");
+					strcpy(buf,"Accueil");
 					tc->state = WAIT_FOR_COMMAND;
 					break;
 				case (PUBLISH) :
@@ -288,24 +373,118 @@ void *sendClient(void *arg)
 				case (SEND_PUBLICATION) :
 					strcpy(ans_client,"0");
 					strcpy(buf,"Publication envoyée");
-					tc->event = SEND_HOMEPAGE;
-					tc->state = CONNECTED;
+					tc->state = ACCUEIL;
 					break;
 				case (VIEW_PUBLI) :
 					strcpy(ans_client,"0");
-					tc->state = CONNECTED;
+					tc->state = ACCUEIL;
 					break;
 				case (FOLLOW) :
 					strcpy(ans_client,"0");
-					strcpy(buf,"Abonnement réussi");
-					tc->event = SEND_HOMEPAGE;
-					tc->state = CONNECTED;
+					strcpy(buf,"Abonnement réussi à ");
+					strcat(buf,tc->buffy);
+					tc->state = ACCUEIL;
 					break;
 				case (UNFOLLOW) :
 					strcpy(ans_client,"0");
-					strcpy(buf,"Désabonnement réussi");
-					tc->event = SEND_HOMEPAGE;
-					tc->state = CONNECTED;
+					strcpy(buf,"Désabonnement réussi de");
+					strcat(buf,tc->buffy);
+					tc->state = ACCUEIL;
+					break;
+				case (DELETE_PUBLI) :
+					strcpy(ans_client,"0");
+					strcpy(buf,"'");
+					strcat(buf,tc->buffy);
+					strcat(buf,"'");
+					ecrireLigne(tc->canal,ans_client);
+					ecrireLigne(tc->canal,buf);
+					strcpy(ans_client,"1");
+					strcpy(buf,"Etes-vous sûr de vouloir supprimer cette publication ? (o/n)");
+					tc->state = DELETE_REQUEST;
+					break;
+				case (SEND_DELETE) :
+					strcpy(ans_client,"1");
+					strcpy(buf,"Publication supprimée");
+					tc->state = ACCUEIL;
+					break;
+				case (SHOW_OUR_PROFILE) :
+					strcpy(ans_client,"0");
+					sprintf(buf,"Profil de %s : %d publications | %d abonnés | %d abonnement",tc->user->utilisateur->pseudo,tc->user->nb_publication,tc->user->nb_abonne,tc->user->nb_abonnement);
+					ecrireLigne(tc->canal,ans_client);
+					ecrireLigne(tc->canal,buf);
+					current_abo = tc->user->abonnements;
+					while (current_abo != NULL)
+					{
+						sprintf(buf,"	Abonnements: %s", current_abo->data_user->utilisateur->pseudo);
+						current_abo = current_abo->suiv;
+						ecrireLigne(tc->canal,ans_client);
+						ecrireLigne(tc->canal,buf);
+					}
+					current_abo = tc->user->abonnes;
+					while (current_abo != NULL)
+					{
+						sprintf(buf,"	Abonnes: %s\n", current_abo->data_user->utilisateur->pseudo);
+						current_abo = current_abo->suiv;
+						ecrireLigne(tc->canal,ans_client);
+						ecrireLigne(tc->canal,buf);
+					}
+					current_publi = tc->user->publication;
+					while (current_publi != NULL)
+					{
+						sprintf(buf,"	Publication id %d: le: %d/%d/%d ", current_publi->id, current_publi->date->tm_mday, current_publi->date->tm_mon+1, current_publi->date->tm_year+1900);
+						ecrireLigne(tc->canal,ans_client);
+						ecrireLigne(tc->canal,buf);
+						sprintf(buf,"a %dh%dmin%ds\n", current_publi->date->tm_hour, current_publi->date->tm_min, current_publi->date->tm_sec);
+						ecrireLigne(tc->canal,ans_client);
+						ecrireLigne(tc->canal,buf);
+						sprintf(buf,"		%s\n", current_publi->texte);
+						ecrireLigne(tc->canal,ans_client);
+						ecrireLigne(tc->canal,buf);
+						current_publi = current_publi->suiv;
+					}
+					strcpy(ans_client,"1");
+					strcpy(buf,"Fin affichage profil");
+					tc->state = WAIT_FOR_COMMAND;
+					break;
+				case (SHOW_PROFILE) :
+					profile_user = findUserByPseudo(data_users.tete_users,tc->buffy);
+					strcpy(ans_client,"0");
+					sprintf(buf,"Profil de %s : %d publications | %d abonnés | %d abonnement",profile_user->utilisateur->pseudo,profile_user->nb_publication,profile_user->nb_abonne,profile_user->nb_abonnement);
+					current_abo = profile_user->abonnements;
+					while (current_abo != NULL)
+					{
+						sprintf(buf,"	Abonnements: %s", current_abo->data_user->utilisateur->pseudo);
+						current_abo = current_abo->suiv;
+						ecrireLigne(tc->canal,ans_client);
+						ecrireLigne(tc->canal,buf);
+					}
+					current_abo = profile_user->abonnes;
+					while (current_abo != NULL)
+					{
+						sprintf(buf,"	Abonnes: %s\n", current_abo->data_user->utilisateur->pseudo);
+						current_abo = current_abo->suiv;
+						ecrireLigne(tc->canal,ans_client);
+						ecrireLigne(tc->canal,buf);
+					}
+					current_publi = profile_user->publication;
+					while (current_publi != NULL)
+					{
+						sprintf(buf,"	Publication id %d: le: %d/%d/%d ", current_publi->id, current_publi->date->tm_mday, current_publi->date->tm_mon+1, current_publi->date->tm_year+1900);
+						ecrireLigne(tc->canal,ans_client);
+						ecrireLigne(tc->canal,buf);
+						sprintf(buf,"a %dh%dmin%ds\n", current_publi->date->tm_hour, current_publi->date->tm_min, current_publi->date->tm_sec);
+						ecrireLigne(tc->canal,ans_client);
+						ecrireLigne(tc->canal,buf);
+						sprintf(buf,"		%s\n", current_publi->texte);
+						ecrireLigne(tc->canal,ans_client);
+						ecrireLigne(tc->canal,buf);
+						current_publi = current_publi->suiv;
+					}
+					strcpy(ans_client,"1");
+					strcpy(buf,"Fin affichage profil");
+					tc->state = WAIT_FOR_COMMAND;
+					break;
+					tc->state = WAIT_FOR_COMMAND;
 					break;
 				case (SHOW_NEWS) :
 					strcpy(ans_client,"0");
@@ -395,12 +574,106 @@ void *sendClient(void *arg)
 					strcpy(buf,"#############");
 					strcpy(ans_client,"1");
 					tc->state = WAIT_FOR_COMMAND;
-				break;
+					break;
+				case (HELP) :
+					strcpy(ans_client,"0");
+					strcpy(buf,"Liste des commandes :");
+					ecrireLigne(tc->canal, ans_client);
+					ecrireLigne(tc->canal, buf);
+					strcpy(buf,"/publish (/p) : Publier un message");
+					ecrireLigne(tc->canal, ans_client);
+					ecrireLigne(tc->canal, buf);
+					strcpy(buf,"/follow *pseudo* (/f *pseudo*) : S'abonner à un utilisateur");
+					ecrireLigne(tc->canal, ans_client);
+					ecrireLigne(tc->canal, buf);
+					strcpy(buf,"/unfollow *pseudo* (/u *pseudo*) : Se désabonner d'un utilisateur");
+					ecrireLigne(tc->canal, ans_client);
+					ecrireLigne(tc->canal, buf);
+					strcpy(buf,"/profile [pseudo] (/pr [pseudo]) : Voir son profil ou celui de [pseudo]");
+					ecrireLigne(tc->canal, ans_client);
+					ecrireLigne(tc->canal, buf);
+					strcpy(buf,"/news (/n) : Afficher le fil d'actualité");
+					ecrireLigne(tc->canal, ans_client);
+					ecrireLigne(tc->canal, buf);
+					strcpy(buf,"/disconnect (/d) : Se deconnecter");
+					ecrireLigne(tc->canal, ans_client);
+					ecrireLigne(tc->canal, buf);
+					strcpy(buf,"/fin : Quitter l'application");
+					strcpy(ans_client,"1");
+					tc->state = WAIT_FOR_COMMAND;
+					break;
 				case (DISCONNECT) :
 					strcpy(ans_client,"0");
 					strcpy(buf,"Deconnexion");
 					tc->state = NOT_CONNECTED;
 					tc->user = NULL;
+					break;
+				case (ERROR_PSEUDO) :
+					strcpy(ans_client, "0");
+					switch(tc->state)
+					{
+						case (CONNECTION_REQUEST_PSEUDO) :
+							strcpy(buf,"Cet utilisateur n'existe pas");
+							tc->state = CONNECTION_REQUEST;
+							break;
+						case (REGISTER_REQUEST_PSEUDO) :
+							strcpy(buf,"Ce pseudo est déjà pris");
+							tc->state = REGISTER_REQUEST;
+							break;
+					}
+					break;
+				case (ERROR_MDP) :
+					strcpy(ans_client, "1");
+					switch(tc->state)
+					{
+						case (CONNECTION_REQUEST_MDP) :
+							strcpy(buf,"Mot de passe erroné");
+							tc->event = SEND_MDP_REQUEST;
+							break;
+						case (REGISTER_REQUEST_MDP) :
+							tc->event = SEND_MDP_REQUEST;
+							strcpy(buf,"Mot de passe invalide");
+							break;
+					}
+					break;
+				case (ERROR_COMMAND) :
+					strcpy(ans_client,"1");
+					strcpy(buf,"Commande inconnue. Tapez \"/help\" pour afficher les commandes disponibles");
+					tc->state = WAIT_FOR_COMMAND;
+					break;
+				case (ERROR_COMMAND2) :
+					strcpy(ans_client,"1");
+					strcpy(buf,"Mauvaise syntaxe, la bonne est la suivante : /follow *pseudo*");
+					tc->state = WAIT_FOR_COMMAND;
+					break;
+				case (ERROR_COMMAND3) :
+					strcpy(ans_client,"1");
+					strcpy(buf,"Mauvaise syntaxe, la bonne est la suivante : /unfollow *pseudo*");
+					tc->state = WAIT_FOR_COMMAND;
+					break;
+				case (ERROR_COMMAND4) :
+					strcpy(ans_client,"1");
+					strcpy(buf,"Mauvaise syntaxe, la bonne est la suivante : /delete *ID_publication*");
+					tc->state = WAIT_FOR_COMMAND;
+					break;
+				case (ERROR_PUBLI) :
+					strcpy(ans_client,"0");
+					strcpy(buf,"Impossible de publier ce message");
+					tc->state = ACCUEIL;
+				case (ERROR_FOLLOW) :
+					strcpy(ans_client,"0");
+					strcpy(buf,"Cet utilisateur n'existe pas");
+					tc->state = ACCUEIL;
+					break;
+				case (ERROR_FOLLOW2) :
+					strcpy(ans_client,"0");
+					strcpy(buf,"Vous êtes déjà abonné à cet utilisateur");
+					tc->state = ACCUEIL;
+					break;
+				case (ERROR_UNFOLLOW) :
+					strcpy(ans_client,"0");
+					strcpy(buf,"Vous n'êtes pas abonné à cet utilisateur");
+					tc->state = ACCUEIL;
 					break;
 			}
 			if (strcmp(ans_client,"1") == 0)

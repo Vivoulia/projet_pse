@@ -22,6 +22,7 @@ void *listenServer(void *arg)
 	char buf[BUF_SIZE];
 	char ans_client[BUF_SIZE];
 	int nbRead = 0;
+	sem_wait(&tc->sem_r);
 	while(secu_fin<20)
 	{
 		nbRead = lireLigne(tc->canal,ans_client);
@@ -57,6 +58,7 @@ void *sendServer(void *arg)
 		if(nbWrite == -1)
 			erreur_IO("ecrireLigne");
 		secu_fin = 0;
+		sem_post(&tc->sem_r);
 	}
 	
 
@@ -101,7 +103,7 @@ int main(int argc, char *argv[])
 	if (pthread_create(&thread_data.Wid, NULL, sendServer, &thread_data) != 0)
 		erreur_IO("creation of the writing thread");
 	printf("Lancement du thread d'écriture n°%d\n", thread_data.tid);
-	
+	sem_post(&thread_data.sem_r);
 	//attente de la fin des thread
 	pthread_join(thread_data.Wid, NULL);
 		
