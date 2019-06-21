@@ -4,7 +4,7 @@
 
 #define BUF_SIZE 400
 #define CMD "serveur"
-#define MaxUser 1
+#define MaxUser 10
 
 
 
